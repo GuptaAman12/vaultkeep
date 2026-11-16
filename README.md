@@ -209,8 +209,7 @@ vaultkeep/
 
 For issues or questions, check:
 1. This README
-2. The walkthrough.md in the artifacts directory
-3. Code comments in each module
+2. Code comments in each module
 
 ---
 
