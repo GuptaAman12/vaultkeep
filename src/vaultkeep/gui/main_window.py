@@ -29,7 +29,7 @@ class PasswordManagerGUI:
         self.root = root
         self.root.title(APP_NAME)
         self.root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
-        self.root.minsize(720, 520)
+        self.root.minsize(680, 520)
         self.manager = PasswordManager()
         self.authenticated = False
         self._search_job = None
@@ -134,7 +134,7 @@ class PasswordManagerGUI:
         menubar.add_cascade(label="Help", menu=help_menu)
         help_menu.add_command(label="About", command=self.show_about)
 
-        self.root.grid_rowconfigure(1, weight=1)
+        self.root.grid_rowconfigure(2, weight=1)
         self.root.grid_columnconfigure(0, weight=1)
 
         header = ttk.Frame(self.root)
@@ -148,27 +148,31 @@ class PasswordManagerGUI:
         toolbar = card(self.root)
         toolbar.grid(row=1, column=0, sticky="ew", padx=18, pady=(0, 10))
         tools = tk.Frame(toolbar, bg=SURFACE)
-        tools.grid(row=0, column=0, sticky="ew", padx=14, pady=12)
-        tools.grid_columnconfigure(1, weight=1)
+        tools.pack(fill="x", padx=14, pady=12)
 
+        # Pack actions first so they stay visible when the window shrinks.
+        actions = tk.Frame(tools, bg=SURFACE)
+        actions.pack(side="right")
+        ttk.Button(actions, text="+ Add password", style="Accent.TButton",
+                   command=self.add_password_dialog).pack(side="right")
+        ttk.Button(actions, text="Generate",
+                   command=self.generate_password_dialog).pack(side="right", padx=(0, 8))
+        self.count_label = ttk.Label(actions, text="", style="CardMuted.TLabel")
+        self.count_label.pack(side="right", padx=(0, 14))
+
+        search_area = tk.Frame(tools, bg=SURFACE)
+        search_area.pack(side="left", fill="x", expand=True)
         self.search_var = tk.StringVar()
         self.search_var.trace("w", self.on_search)
         self.search_entry = ttk.Entry(
-            tools, textvariable=self.search_var, width=26, font=FONT_BODY)
-        self.search_entry.grid(row=0, column=0, sticky="w")
+            search_area, textvariable=self.search_var, width=18, font=FONT_BODY)
+        self.search_entry.pack(side="left", fill="x", expand=True)
         self.search_entry.insert(0, SEARCH_PLACEHOLDER)
         self.search_entry.config(foreground=MUTED)
         self.search_entry.bind("<FocusIn>", self._search_focus_in)
         self.search_entry.bind("<FocusOut>", self._search_focus_out)
-        ttk.Button(tools, text="Clear", command=self.clear_search).grid(
-            row=0, column=1, sticky="w", padx=(8, 0))
-
-        self.count_label = ttk.Label(tools, text="", style="CardMuted.TLabel")
-        self.count_label.grid(row=0, column=2, padx=(0, 14))
-        ttk.Button(tools, text="Generate", command=self.generate_password_dialog).grid(
-            row=0, column=3, padx=(0, 8))
-        ttk.Button(tools, text="+ Add password", style="Accent.TButton",
-                   command=self.add_password_dialog).grid(row=0, column=4)
+        ttk.Button(search_area, text="Clear", command=self.clear_search).pack(
+            side="left", padx=(8, 0))
 
         list_card = card(self.root)
         list_card.grid(row=2, column=0, sticky="nsew", padx=18)
@@ -181,8 +185,8 @@ class PasswordManagerGUI:
         self.tree.grid(row=0, column=0, sticky="nsew", padx=(1, 0), pady=1)
         self.tree.heading("Service", text="SERVICE / WEBSITE", anchor="w")
         self.tree.heading("Username", text="USERNAME / EMAIL", anchor="w")
-        self.tree.column("Service", width=300, anchor="w")
-        self.tree.column("Username", width=300, anchor="w")
+        self.tree.column("Service", width=240, minwidth=100, anchor="w")
+        self.tree.column("Username", width=240, minwidth=100, anchor="w")
         self.tree.tag_configure("odd", background=SURFACE_ALT)
         self.tree.bind("<Double-Button-1>", self.view_password)
         self.tree.bind("<Button-3>", self.show_context_menu)
