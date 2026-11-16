@@ -14,6 +14,8 @@
    python main.py
    ```
 
+   From an installed package (or with `PYTHONPATH=src`), `python -m vaultkeep` works too. Run the self-checks with `python -m unittest discover -s tests`.
+
 3. **First Time Setup**:
    - Enter a **master password** (this will create your vault)
    - Remember this password - you'll need it every time!
@@ -153,17 +155,24 @@ pip install cryptography
 ## Project Structure
 
 ```
-Password Manager/
-├── main.py                  # Entry point
-├── constants.py             # Configuration constants
-├── logger.py               # Logging setup
-├── crypto_manager.py        # Encryption utilities
-├── password_generator.py    # Password generation
-├── password_manager.py      # Core business logic
-├── password_strength.py     # Password strength checker
-├── backup_manager.py        # Export/import functionality
-├── gui_components.py        # Dialog components
-├── main_window.py          # Main application window
+vaultkeep/
+├── main.py                       # Entry point (python main.py)
+├── src/vaultkeep/
+│   ├── __init__.py               # Package entry (python -m vaultkeep)
+│   ├── __main__.py
+│   ├── constants.py              # Configuration
+│   ├── logging_config.py         # Audit logging
+│   ├── core/
+│   │   ├── vault.py              # Entry storage and logic
+│   │   ├── crypto.py             # Encryption
+│   │   └── backup.py             # Export/import
+│   ├── security/
+│   │   ├── generator.py          # Password generation
+│   │   └── strength.py           # Strength checker
+│   └── gui/
+│       ├── main_window.py        # Main window
+│       └── dialogs.py            # Dialog components
+├── tests/test_vaultkeep.py       # Self-checks
 ├── README.md               # This file
 ├── passwords.enc           # Your encrypted passwords (created on first run)
 ├── salt.key               # Encryption salt (created on first run)

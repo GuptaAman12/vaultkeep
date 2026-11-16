@@ -1,26 +1,11 @@
-"""
-Secure Password Manager with GUI
-Entry point for the application.
+"""Entry point for ``python main.py`` from the repository root."""
 
-Features:
-- Master password protection
-- AES encryption for stored passwords
-- Add, view, edit, and delete passwords
-- Search functionality
-- Password generator
-- Copy to clipboard
-"""
+import sys
+from pathlib import Path
 
-import tkinter as tk
-from main_window import PasswordManagerGUI
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
-
-def main():
-    """Main entry point for the password manager application."""
-    root = tk.Tk()
-    app = PasswordManagerGUI(root)
-    root.mainloop()
-
+from vaultkeep import main  # noqa: E402
 
 if __name__ == "__main__":
     main()

@@ -1,7 +1,4 @@
-"""
-Application constants and configuration values.
-Centralized location for all magic strings and configuration parameters.
-"""
+"""Application constants and configuration values."""
 
 # File paths
 DATA_FILE = "passwords.enc"
@@ -25,7 +22,6 @@ STRENGTH_GOOD = 2
 STRENGTH_STRONG = 3
 STRENGTH_VERY_STRONG = 4
 
-# Password strength criteria
 MIN_LENGTH_WEAK = 6
 MIN_LENGTH_FAIR = 8
 MIN_LENGTH_GOOD = 12
@@ -33,22 +29,30 @@ MIN_LENGTH_STRONG = 16
 MIN_LENGTH_VERY_STRONG = 20
 
 # GUI settings
+APP_NAME = "Vaultkeep"
 WINDOW_WIDTH = 800
 WINDOW_HEIGHT = 600
 DIALOG_WIDTH = 500
 DIALOG_HEIGHT = 400
 GENERATOR_DIALOG_WIDTH = 450
 GENERATOR_DIALOG_HEIGHT = 400
+SEARCH_DEBOUNCE_MS = 150
+THEME = "clam"
 
 # Font settings
 FONT_FAMILY = "Arial"
+FONT_SIZE_SMALL = 9
 FONT_SIZE_NORMAL = 10
 FONT_SIZE_LARGE = 12
-FONT_SIZE_TITLE = 24
 FONT_SIZE_SUBTITLE = 14
-
-# Theme
-THEME = "clam"
+FONT_SIZE_TITLE = 24
+FONT_NORMAL = (FONT_FAMILY, FONT_SIZE_NORMAL)
+FONT_NORMAL_BOLD = (FONT_FAMILY, FONT_SIZE_NORMAL, "bold")
+FONT_SMALL = (FONT_FAMILY, FONT_SIZE_SMALL)
+FONT_LARGE = (FONT_FAMILY, FONT_SIZE_LARGE)
+FONT_SUBTITLE = (FONT_FAMILY, FONT_SIZE_SUBTITLE, "bold")
+FONT_TITLE = (FONT_FAMILY, FONT_SIZE_TITLE, "bold")
+FONT_MONO = ("Courier", FONT_SIZE_LARGE)
 
 # Export/Import settings
 EXPORT_FILE_EXTENSION = ".json"

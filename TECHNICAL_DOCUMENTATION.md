@@ -35,15 +35,15 @@ The application follows a **layered architecture** with clear separation of conc
 
 ```mermaid
 graph TD
-    A[main.py] --> B[main_window.py]
-    B --> C[password_manager.py]
-    B --> D[gui_components.py]
-    C --> E[crypto_manager.py]
-    C --> F[backup_manager.py]
-    D --> G[password_generator.py]
-    D --> H[password_strength.py]
+    A[main.py] --> B[gui/gui/main_window.py]
+    B --> C[core/vault.py]
+    B --> D[gui/dialogs.py]
+    C --> E[core/crypto.py]
+    C --> F[core/backup.py]
+    D --> G[security/generator.py]
+    D --> H[security/strength.py]
     E --> I[constants.py]
-    E --> J[logger.py]
+    E --> J[logging_config.py]
     C --> I
     C --> J
     F --> J
@@ -73,7 +73,7 @@ User Input → PBKDF2 Key Derivation → AES Encryption Key
 - Uses salt to prevent rainbow table attacks
 - Each iteration applies SHA-256 hash function
 
-**Code Implementation** (`crypto_manager.py`):
+**Code Implementation** (`core/crypto.py`):
 ```python
 kdf = PBKDF2HMAC(
     algorithm=hashes.SHA256(),
@@ -112,7 +112,7 @@ Ciphertext (variable) || HMAC (32 bytes)
 4. Write encrypted bytes to file
 ```
 
-**Code Implementation** (`crypto_manager.py`):
+**Code Implementation** (`core/crypto.py`):
 ```python
 # Encryption
 data = json.dumps(passwords).encode()
@@ -166,7 +166,7 @@ salt = os.urandom(16)  # Cryptographically secure random bytes
 
 ## Module Breakdown
 
-### 1. crypto_manager.py
+### 1. core/crypto.py
 
 **Purpose**: Handle all cryptographic operations
 
@@ -201,7 +201,7 @@ salt = os.urandom(16)  # Cryptographically secure random bytes
 
 ---
 
-### 2. password_manager.py
+### 2. core/vault.py
 
 **Purpose**: Core business logic for password management
 
@@ -265,7 +265,7 @@ def save(self):
 
 ---
 
-### 3. password_strength.py
+### 3. security/strength.py
 
 **Purpose**: Evaluate password strength
 
@@ -319,7 +319,7 @@ def check_strength(password):
 
 ---
 
-### 4. password_generator.py
+### 4. security/generator.py
 
 **Purpose**: Generate cryptographically secure random passwords
 
@@ -351,7 +351,7 @@ def generate(length=16, use_uppercase=True, ...):
 
 ---
 
-### 5. backup_manager.py
+### 5. core/backup.py
 
 **Purpose**: Handle export/import of password data
 
