@@ -72,6 +72,7 @@ These settings live in `src/vaultkeep/constants.py`.
 ```
 main.py                       entry point
 src/vaultkeep/
+  assets/vaultkeep.png        app icon
   __init__.py                 application startup
   constants.py                configuration
   logging_config.py           logger setup
@@ -87,6 +88,8 @@ src/vaultkeep/
     dialogs.py                add, view, edit and generator dialogs
 tests/test_vaultkeep.py       self-checks
 ```
+
+The app icon is from Paomedia's small-n-flat set and is released under CC0.
 
 ## Tests
 

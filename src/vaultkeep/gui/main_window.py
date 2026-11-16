@@ -3,6 +3,7 @@
 import os
 import tkinter as tk
 from datetime import datetime
+from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from ..constants import (
@@ -15,11 +16,11 @@ from .dialogs import (
     AddPasswordDialog, EditPasswordDialog, PasswordGeneratorDialog, ViewPasswordDialog,
 )
 from .theme import (
-    ACCENT, BG, MUTED, SURFACE, SURFACE_ALT, TEXT, apply_theme, card, menu,
-    FONT_BODY, FONT_BRAND,
+    BG, MUTED, SURFACE, SURFACE_ALT, TEXT, apply_theme, card, menu, FONT_BODY,
 )
 
 SEARCH_PLACEHOLDER = "Search services..."
+LOGO_PATH = Path(__file__).resolve().parents[1] / "assets" / "vaultkeep.png"
 
 
 class PasswordManagerGUI:
@@ -34,6 +35,9 @@ class PasswordManagerGUI:
         self.authenticated = False
         self._search_job = None
         apply_theme(root)
+        self.logo = tk.PhotoImage(file=str(LOGO_PATH))
+        self.logo_small = self.logo.subsample(12)
+        self.root.iconphoto(True, self.logo)
         self.show_login()
 
     def show_login(self):
@@ -48,10 +52,8 @@ class PasswordManagerGUI:
         inner = tk.Frame(panel, bg=SURFACE)
         inner.grid(row=0, column=0, padx=36, pady=32)
 
-        badge = tk.Canvas(inner, width=46, height=46, bg=SURFACE, highlightthickness=0)
-        badge.create_oval(2, 2, 44, 44, fill=ACCENT)
-        badge.create_text(23, 24, text="V", fill="white", font=FONT_BRAND)
-        badge.grid(row=0, column=0, columnspan=2, pady=(0, 14))
+        ttk.Label(inner, image=self.logo_small, style="Card.TLabel").grid(
+            row=0, column=0, columnspan=2, pady=(0, 14))
 
         title = "Create your vault" if first_time else f"Welcome back to {APP_NAME}"
         ttk.Label(inner, text=title, style="Title.TLabel").grid(
