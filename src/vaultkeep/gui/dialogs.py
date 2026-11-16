@@ -97,7 +97,7 @@ class AddPasswordDialog(_PasswordFormMixin):
     def __init__(self, parent, manager, refresh_callback):
         self.manager = manager
         self.refresh_callback = refresh_callback
-        self.dialog = _dialog(parent, "Add password", DIALOG_WIDTH + 40, DIALOG_HEIGHT + 230)
+        self.dialog = _dialog(parent, "Add password", DIALOG_WIDTH + 40, DIALOG_HEIGHT + 280)
         inner = _panel(self.dialog)
 
         ttk.Label(inner, text="New password", style="Title.TLabel").grid(
@@ -158,7 +158,7 @@ class ViewPasswordDialog:
     def __init__(self, parent, service, data, copy_callback):
         self.data = data
         self.copy_callback = copy_callback
-        self.dialog = _dialog(parent, service, DIALOG_WIDTH + 40, DIALOG_HEIGHT + 60)
+        self.dialog = _dialog(parent, service, DIALOG_WIDTH + 40, DIALOG_HEIGHT + 110)
         inner = _panel(self.dialog)
 
         ttk.Label(inner, text=service, style="Title.TLabel").grid(
@@ -215,7 +215,7 @@ class EditPasswordDialog(_PasswordFormMixin):
         self.data = data
         self.manager = manager
         self.refresh_callback = refresh_callback
-        self.dialog = _dialog(parent, f"Edit {service}", DIALOG_WIDTH + 40, DIALOG_HEIGHT + 230)
+        self.dialog = _dialog(parent, f"Edit {service}", DIALOG_WIDTH + 40, DIALOG_HEIGHT + 280)
         inner = _panel(self.dialog)
 
         ttk.Label(inner, text=service, style="Title.TLabel").grid(
@@ -270,7 +270,7 @@ class PasswordGeneratorDialog:
     def __init__(self, parent, copy_callback):
         self.copy_callback = copy_callback
         self.dialog = _dialog(
-            parent, "Password generator", GENERATOR_DIALOG_WIDTH, GENERATOR_DIALOG_HEIGHT + 110)
+            parent, "Password generator", GENERATOR_DIALOG_WIDTH, GENERATOR_DIALOG_HEIGHT + 230)
         inner = _panel(self.dialog)
 
         ttk.Label(inner, text="Password generator", style="Title.TLabel").grid(
