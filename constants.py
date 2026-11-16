@@ -1,0 +1,59 @@
+"""
+Application constants and configuration values.
+Centralized location for all magic strings and configuration parameters.
+"""
+
+# File paths
+DATA_FILE = "passwords.enc"
+SALT_FILE = "salt.key"
+LOG_FILE = "password_manager.log"
+
+# Encryption settings
+PBKDF2_ITERATIONS = 100000
+KEY_LENGTH = 32
+SALT_LENGTH = 16
+
+# Password generator defaults
+DEFAULT_PASSWORD_LENGTH = 16
+MIN_PASSWORD_LENGTH = 8
+MAX_PASSWORD_LENGTH = 64
+
+# Password strength thresholds
+STRENGTH_WEAK = 0
+STRENGTH_FAIR = 1
+STRENGTH_GOOD = 2
+STRENGTH_STRONG = 3
+STRENGTH_VERY_STRONG = 4
+
+# Password strength criteria
+MIN_LENGTH_WEAK = 6
+MIN_LENGTH_FAIR = 8
+MIN_LENGTH_GOOD = 12
+MIN_LENGTH_STRONG = 16
+MIN_LENGTH_VERY_STRONG = 20
+
+# GUI settings
+WINDOW_WIDTH = 800
+WINDOW_HEIGHT = 600
+DIALOG_WIDTH = 500
+DIALOG_HEIGHT = 400
+GENERATOR_DIALOG_WIDTH = 450
+GENERATOR_DIALOG_HEIGHT = 400
+
+# Font settings
+FONT_FAMILY = "Arial"
+FONT_SIZE_NORMAL = 10
+FONT_SIZE_LARGE = 12
+FONT_SIZE_TITLE = 24
+FONT_SIZE_SUBTITLE = 14
+
+# Theme
+THEME = "clam"
+
+# Export/Import settings
+EXPORT_FILE_EXTENSION = ".json"
+EXPORT_FILE_TYPES = [("JSON files", "*.json"), ("All files", "*.*")]
+
+# Logging settings
+LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+LOG_LEVEL = "INFO"
