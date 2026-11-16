@@ -4,30 +4,97 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from ..constants import (
-    DIALOG_HEIGHT, DIALOG_WIDTH, FONT_MONO, FONT_NORMAL,
-    FONT_NORMAL_BOLD, FONT_SUBTITLE, GENERATOR_DIALOG_HEIGHT,
+    DEFAULT_PASSWORD_LENGTH, DIALOG_HEIGHT, DIALOG_WIDTH, GENERATOR_DIALOG_HEIGHT,
     GENERATOR_DIALOG_WIDTH, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH,
-    DEFAULT_PASSWORD_LENGTH,
 )
 from ..security.generator import PasswordGenerator
 from ..security.strength import PasswordStrengthChecker
+from .theme import BG, BORDER, SURFACE, TEXT, card, FONT_BODY, FONT_MONO
+
+
+def _dialog(parent, title, width, height):
+    """Create a themed modal dialog."""
+    dialog = tk.Toplevel(parent)
+    dialog.title(title)
+    dialog.geometry(f"{width}x{height}")
+    dialog.transient(parent)
+    dialog.grab_set()
+    dialog.configure(bg=BG)
+    return dialog
+
+
+def _panel(dialog):
+    """Create a bordered content card with a padded inner frame."""
+    panel = card(dialog)
+    panel.pack(fill="both", expand=True, padx=16, pady=16)
+    panel.grid_rowconfigure(0, weight=1)
+    panel.grid_columnconfigure(0, weight=1)
+    inner = tk.Frame(panel, bg=SURFACE)
+    inner.grid(row=0, column=0, sticky="nsew", padx=24, pady=22)
+    inner.grid_columnconfigure(0, weight=1)
+    return inner
+
+
+def _notes_widget(parent, text=""):
+    notes = tk.Text(parent, width=40, height=4, font=FONT_BODY, wrap="word",
+                    bg=SURFACE, fg=TEXT, highlightbackground=BORDER,
+                    highlightthickness=1, relief="flat", padx=8, pady=6)
+    if text:
+        notes.insert("1.0", text)
+    return notes
 
 
 class _PasswordFormMixin:
-    """Shared show/strength behavior for the add and edit dialogs."""
+    """Shared password visibility, strength and generation behavior."""
 
     def _toggle_password(self):
-        self.password_entry.config(show="" if self.show_var.get() else "*")
+        self._password_visible = not self._password_visible
+        self.password_entry.config(show="" if self._password_visible else "\u2022")
+        self.show_button.config(text="Hide" if self._password_visible else "Show")
+
+    def _add_password_field(self, inner, row, initial=""):
+        ttk.Label(inner, text="Password", style="Field.TLabel").grid(
+            row=row, column=0, columnspan=2, sticky="w", pady=(14, 5))
+        self.password_entry = ttk.Entry(
+            inner, show="\u2022", width=36, font=FONT_BODY)
+        self.password_entry.insert(0, initial)
+        self.password_entry.grid(row=row + 1, column=0, sticky="ew", ipady=3)
+        self._password_visible = False
+        self.show_button = ttk.Button(
+            inner, text="Show", width=8, command=self._toggle_password)
+        self.show_button.grid(row=row + 1, column=1, padx=(8, 0))
+        self.password_entry.bind("<KeyRelease>", self._check_strength)
+
+    def _add_strength_ui(self, inner, row):
+        ttk.Label(inner, text="Strength", style="Field.TLabel").grid(
+            row=row, column=0, columnspan=2, sticky="w", pady=(14, 5))
+        self.strength_bar = ttk.Progressbar(
+            inner, maximum=4, mode="determinate", style="Strength.Horizontal.TProgressbar")
+        self.strength_bar.grid(row=row + 1, column=0, sticky="ew")
+        self.strength_label = ttk.Label(inner, text="-", style="CardMuted.TLabel")
+        self.strength_label.grid(row=row + 1, column=1, padx=(10, 0))
+        self.strength_feedback = ttk.Label(inner, text="", style="CardMuted.TLabel")
+        self.strength_feedback.grid(row=row + 2, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        self._check_strength()
 
     def _check_strength(self, event=None):
         password = self.password_entry.get()
         if not password:
-            self.strength_label.config(text="-", foreground="black")
+            self.strength_bar.config(value=0)
+            self.strength_label.config(text="-", foreground="#64748b")
+            self.strength_feedback.config(text="")
             return
-        level, label, _ = PasswordStrengthChecker.check_strength(password)
-        self.strength_label.config(
-            text=label, foreground=PasswordStrengthChecker.get_strength_color(level)
-        )
+        level, label, feedback = PasswordStrengthChecker.check_strength(password)
+        color = PasswordStrengthChecker.get_strength_color(level)
+        ttk.Style().configure("Strength.Horizontal.TProgressbar", background=color)
+        self.strength_bar.config(value=level)
+        self.strength_label.config(text=label, foreground=color)
+        self.strength_feedback.config(text=", ".join(feedback[:2]))
+
+    def _generate_password(self):
+        self.password_entry.delete(0, tk.END)
+        self.password_entry.insert(0, PasswordGenerator.generate(DEFAULT_PASSWORD_LENGTH))
+        self._check_strength()
 
 
 class AddPasswordDialog(_PasswordFormMixin):
@@ -36,53 +103,41 @@ class AddPasswordDialog(_PasswordFormMixin):
     def __init__(self, parent, manager, refresh_callback):
         self.manager = manager
         self.refresh_callback = refresh_callback
+        self.dialog = _dialog(parent, "Add password", DIALOG_WIDTH + 40, DIALOG_HEIGHT + 230)
+        inner = _panel(self.dialog)
 
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Add Password")
-        self.dialog.geometry(f"{DIALOG_WIDTH}x{DIALOG_HEIGHT}")
-        self.dialog.transient(parent)
-        self.dialog.grab_set()
-        self._create_widgets()
+        ttk.Label(inner, text="New password", style="Title.TLabel").grid(
+            row=0, column=0, columnspan=2, sticky="w")
+        ttk.Label(inner, text="Save a credential to your encrypted vault.",
+                  style="CardMuted.TLabel").grid(row=1, column=0, columnspan=2, sticky="w", pady=(3, 16))
 
-    def _create_widgets(self):
-        frame = ttk.Frame(self.dialog, padding="20")
-        frame.pack(fill="both", expand=True)
-
-        ttk.Label(frame, text="Service / Website:", font=FONT_NORMAL).grid(
-            row=0, column=0, sticky="w", pady=5)
-        self.service_entry = ttk.Entry(frame, width=40, font=FONT_NORMAL)
-        self.service_entry.grid(row=0, column=1, pady=5, padx=5)
+        ttk.Label(inner, text="Service / website", style="Field.TLabel").grid(
+            row=2, column=0, columnspan=2, sticky="w", pady=(0, 5))
+        self.service_entry = ttk.Entry(inner, width=36, font=FONT_BODY)
+        self.service_entry.grid(row=3, column=0, columnspan=2, sticky="ew", ipady=3)
         self.service_entry.focus()
 
-        ttk.Label(frame, text="Username / Email:", font=FONT_NORMAL).grid(
-            row=1, column=0, sticky="w", pady=5)
-        self.username_entry = ttk.Entry(frame, width=40, font=FONT_NORMAL)
-        self.username_entry.grid(row=1, column=1, pady=5, padx=5)
+        ttk.Label(inner, text="Username / email", style="Field.TLabel").grid(
+            row=4, column=0, columnspan=2, sticky="w", pady=(14, 5))
+        self.username_entry = ttk.Entry(inner, width=36, font=FONT_BODY)
+        self.username_entry.grid(row=5, column=0, columnspan=2, sticky="ew", ipady=3)
 
-        ttk.Label(frame, text="Password:", font=FONT_NORMAL).grid(
-            row=2, column=0, sticky="w", pady=5)
-        self.password_entry = ttk.Entry(frame, width=40, show="*", font=FONT_NORMAL)
-        self.password_entry.grid(row=2, column=1, pady=5, padx=5)
-        self.password_entry.bind("<KeyRelease>", self._check_strength)
+        self._add_password_field(inner, 6)
+        self._add_strength_ui(inner, 8)
+        ttk.Button(inner, text="Suggest a strong password",
+                   command=self._generate_password).grid(
+            row=10, column=0, columnspan=2, sticky="w", pady=(8, 0))
 
-        self.show_var = tk.BooleanVar()
-        ttk.Checkbutton(frame, text="Show password", variable=self.show_var,
-                        command=self._toggle_password).grid(row=3, column=1, sticky="w", padx=5)
+        ttk.Label(inner, text="Notes", style="Field.TLabel").grid(
+            row=11, column=0, columnspan=2, sticky="w", pady=(14, 5))
+        self.notes_text = _notes_widget(inner)
+        self.notes_text.grid(row=12, column=0, columnspan=2, sticky="ew")
 
-        ttk.Label(frame, text="Strength:", font=FONT_NORMAL).grid(
-            row=4, column=0, sticky="w", pady=5)
-        self.strength_label = ttk.Label(frame, text="-", font=FONT_NORMAL)
-        self.strength_label.grid(row=4, column=1, sticky="w", pady=5, padx=5)
-
-        ttk.Label(frame, text="Notes:", font=FONT_NORMAL).grid(
-            row=5, column=0, sticky="nw", pady=5)
-        self.notes_text = tk.Text(frame, width=40, height=5, font=FONT_NORMAL)
-        self.notes_text.grid(row=5, column=1, pady=5, padx=5)
-
-        button_frame = ttk.Frame(frame)
-        button_frame.grid(row=6, column=0, columnspan=2, pady=20)
-        ttk.Button(button_frame, text="Save", command=self._save).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Cancel", command=self.dialog.destroy).pack(side="left", padx=5)
+        buttons = tk.Frame(inner, bg=SURFACE)
+        buttons.grid(row=13, column=0, columnspan=2, sticky="e", pady=(18, 0))
+        ttk.Button(buttons, text="Cancel", command=self.dialog.destroy).pack(side="left", padx=(0, 8))
+        ttk.Button(buttons, text="Save password", style="Accent.TButton",
+                   command=self._save).pack(side="left")
 
     def _save(self):
         service = self.service_entry.get().strip()
@@ -91,15 +146,16 @@ class AddPasswordDialog(_PasswordFormMixin):
         notes = self.notes_text.get("1.0", "end-1c").strip()
 
         if not service or not username or not password:
-            messagebox.showerror("Error", "Service, username, and password are required")
+            messagebox.showerror("Missing details", "Service, username and password are required.",
+                                 parent=self.dialog)
             return
 
         if self.manager.add_password(service, username, password, notes):
-            messagebox.showinfo("Success", "Password added successfully")
+            messagebox.showinfo("Saved", "Password added to your vault.", parent=self.dialog)
             self.refresh_callback()
             self.dialog.destroy()
         else:
-            messagebox.showerror("Error", "Failed to save password")
+            messagebox.showerror("Error", "Failed to save password.", parent=self.dialog)
 
 
 class ViewPasswordDialog:
@@ -108,58 +164,53 @@ class ViewPasswordDialog:
     def __init__(self, parent, service, data, copy_callback):
         self.data = data
         self.copy_callback = copy_callback
+        self.dialog = _dialog(parent, service, DIALOG_WIDTH + 40, DIALOG_HEIGHT + 60)
+        inner = _panel(self.dialog)
 
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title(f"Password - {service}")
-        self.dialog.geometry(f"{DIALOG_WIDTH}x{DIALOG_HEIGHT}")
-        self.dialog.transient(parent)
-        self._create_widgets(service)
+        ttk.Label(inner, text=service, style="Title.TLabel").grid(
+            row=0, column=0, columnspan=2, sticky="w")
+        ttk.Label(inner, text="Stored in your encrypted vault.",
+                  style="CardMuted.TLabel").grid(row=1, column=0, columnspan=2, sticky="w", pady=(3, 20))
 
-    def _create_widgets(self, service):
-        frame = ttk.Frame(self.dialog, padding="20")
-        frame.pack(fill="both", expand=True)
+        ttk.Label(inner, text="Username / email", style="Field.TLabel").grid(
+            row=2, column=0, sticky="w", pady=(0, 8))
+        ttk.Label(inner, text=self.data["username"], style="Value.TLabel").grid(
+            row=2, column=1, sticky="w")
+        ttk.Button(inner, text="Copy", width=8,
+                   command=lambda: self.copy_callback(self.data["username"])).grid(
+            row=2, column=2, padx=(10, 0))
 
-        ttk.Label(frame, text="Service:", font=FONT_NORMAL_BOLD).grid(
-            row=0, column=0, sticky="w", pady=5)
-        ttk.Label(frame, text=service, font=FONT_NORMAL).grid(
-            row=0, column=1, sticky="w", pady=5)
+        ttk.Label(inner, text="Password", style="Field.TLabel").grid(
+            row=3, column=0, sticky="w", pady=(18, 8))
+        self.password_label = ttk.Label(inner, text="\u2022" * 12, style="Mono.TLabel")
+        self.password_label.grid(row=3, column=1, sticky="w")
+        self._visible = False
+        self.show_button = ttk.Button(
+            inner, text="Show", width=8, command=self._toggle_password)
+        self.show_button.grid(row=3, column=2, padx=(4, 0))
+        ttk.Button(inner, text="Copy", width=8,
+                   command=lambda: self.copy_callback(self.data["password"])).grid(
+            row=3, column=3, padx=(4, 0))
 
-        ttk.Label(frame, text="Username:", font=FONT_NORMAL_BOLD).grid(
-            row=1, column=0, sticky="w", pady=5)
-        username_frame = ttk.Frame(frame)
-        username_frame.grid(row=1, column=1, sticky="w", pady=5)
-        ttk.Label(username_frame, text=self.data["username"], font=FONT_NORMAL).pack(side="left")
-        ttk.Button(username_frame, text="Copy", width=8,
-                   command=lambda: self.copy_callback(self.data["username"])).pack(side="left", padx=5)
-
-        ttk.Label(frame, text="Password:", font=FONT_NORMAL_BOLD).grid(
-            row=2, column=0, sticky="w", pady=5)
-        password_frame = ttk.Frame(frame)
-        password_frame.grid(row=2, column=1, sticky="w", pady=5)
-        self.password_label = ttk.Label(password_frame, text="•" * 12, font=FONT_NORMAL)
-        self.password_label.pack(side="left")
-        self.show_var = tk.BooleanVar()
-        ttk.Checkbutton(password_frame, text="Show", variable=self.show_var,
-                        command=self._toggle_password).pack(side="left", padx=5)
-        ttk.Button(password_frame, text="Copy", width=8,
-                   command=lambda: self.copy_callback(self.data["password"])).pack(side="left", padx=5)
-
+        row = 4
         if self.data.get("notes"):
-            ttk.Label(frame, text="Notes:", font=FONT_NORMAL_BOLD).grid(
-                row=3, column=0, sticky="nw", pady=5)
-            notes_text = tk.Text(frame, width=40, height=8, font=FONT_NORMAL)
-            notes_text.grid(row=3, column=1, pady=5)
-            notes_text.insert("1.0", self.data["notes"])
-            notes_text.config(state="disabled")
+            ttk.Label(inner, text="Notes", style="Field.TLabel").grid(
+                row=4, column=0, columnspan=4, sticky="w", pady=(20, 6))
+            notes = _notes_widget(inner, self.data["notes"])
+            notes.config(state="disabled")
+            notes.grid(row=5, column=0, columnspan=4, sticky="ew")
+            row = 6
 
-        ttk.Button(frame, text="Close", command=self.dialog.destroy).grid(
-            row=4, column=0, columnspan=2, pady=20)
+        buttons = tk.Frame(inner, bg=SURFACE)
+        buttons.grid(row=row, column=0, columnspan=4, sticky="e", pady=(22, 0))
+        ttk.Button(buttons, text="Close", style="Accent.TButton",
+                   command=self.dialog.destroy).pack(side="left")
 
     def _toggle_password(self):
-        if self.show_var.get():
-            self.password_label.config(text=self.data["password"])
-        else:
-            self.password_label.config(text="•" * 12)
+        self._visible = not self._visible
+        self.password_label.config(
+            text=self.data["password"] if self._visible else "\u2022" * 12)
+        self.show_button.config(text="Hide" if self._visible else "Show")
 
 
 class EditPasswordDialog(_PasswordFormMixin):
@@ -170,56 +221,36 @@ class EditPasswordDialog(_PasswordFormMixin):
         self.data = data
         self.manager = manager
         self.refresh_callback = refresh_callback
+        self.dialog = _dialog(parent, f"Edit {service}", DIALOG_WIDTH + 40, DIALOG_HEIGHT + 230)
+        inner = _panel(self.dialog)
 
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title(f"Edit - {service}")
-        self.dialog.geometry(f"{DIALOG_WIDTH}x{DIALOG_HEIGHT}")
-        self.dialog.transient(parent)
-        self.dialog.grab_set()
-        self._create_widgets()
+        ttk.Label(inner, text=service, style="Title.TLabel").grid(
+            row=0, column=0, columnspan=2, sticky="w")
+        ttk.Label(inner, text="Update the details below.",
+                  style="CardMuted.TLabel").grid(row=1, column=0, columnspan=2, sticky="w", pady=(3, 16))
 
-    def _create_widgets(self):
-        frame = ttk.Frame(self.dialog, padding="20")
-        frame.pack(fill="both", expand=True)
-
-        ttk.Label(frame, text="Service / Website:", font=FONT_NORMAL).grid(
-            row=0, column=0, sticky="w", pady=5)
-        ttk.Label(frame, text=self.service, font=FONT_NORMAL_BOLD).grid(
-            row=0, column=1, sticky="w", pady=5, padx=5)
-
-        ttk.Label(frame, text="Username / Email:", font=FONT_NORMAL).grid(
-            row=1, column=0, sticky="w", pady=5)
-        self.username_entry = ttk.Entry(frame, width=40, font=FONT_NORMAL)
-        self.username_entry.grid(row=1, column=1, pady=5, padx=5)
+        ttk.Label(inner, text="Username / email", style="Field.TLabel").grid(
+            row=2, column=0, columnspan=2, sticky="w", pady=(0, 5))
+        self.username_entry = ttk.Entry(inner, width=36, font=FONT_BODY)
         self.username_entry.insert(0, self.data["username"])
+        self.username_entry.grid(row=3, column=0, columnspan=2, sticky="ew", ipady=3)
 
-        ttk.Label(frame, text="Password:", font=FONT_NORMAL).grid(
-            row=2, column=0, sticky="w", pady=5)
-        self.password_entry = ttk.Entry(frame, width=40, show="*", font=FONT_NORMAL)
-        self.password_entry.grid(row=2, column=1, pady=5, padx=5)
-        self.password_entry.insert(0, self.data["password"])
-        self.password_entry.bind("<KeyRelease>", self._check_strength)
+        self._add_password_field(inner, 4, self.data["password"])
+        self._add_strength_ui(inner, 6)
+        ttk.Button(inner, text="Suggest a strong password",
+                   command=self._generate_password).grid(
+            row=8, column=0, columnspan=2, sticky="w", pady=(8, 0))
 
-        self.show_var = tk.BooleanVar()
-        ttk.Checkbutton(frame, text="Show password", variable=self.show_var,
-                        command=self._toggle_password).grid(row=3, column=1, sticky="w", padx=5)
+        ttk.Label(inner, text="Notes", style="Field.TLabel").grid(
+            row=9, column=0, columnspan=2, sticky="w", pady=(14, 5))
+        self.notes_text = _notes_widget(inner, self.data.get("notes", ""))
+        self.notes_text.grid(row=10, column=0, columnspan=2, sticky="ew")
 
-        ttk.Label(frame, text="Strength:", font=FONT_NORMAL).grid(
-            row=4, column=0, sticky="w", pady=5)
-        self.strength_label = ttk.Label(frame, text="-", font=FONT_NORMAL)
-        self.strength_label.grid(row=4, column=1, sticky="w", pady=5, padx=5)
-        self._check_strength()
-
-        ttk.Label(frame, text="Notes:", font=FONT_NORMAL).grid(
-            row=5, column=0, sticky="nw", pady=5)
-        self.notes_text = tk.Text(frame, width=40, height=5, font=FONT_NORMAL)
-        self.notes_text.grid(row=5, column=1, pady=5, padx=5)
-        self.notes_text.insert("1.0", self.data.get("notes", ""))
-
-        button_frame = ttk.Frame(frame)
-        button_frame.grid(row=6, column=0, columnspan=2, pady=20)
-        ttk.Button(button_frame, text="Save", command=self._save).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Cancel", command=self.dialog.destroy).pack(side="left", padx=5)
+        buttons = tk.Frame(inner, bg=SURFACE)
+        buttons.grid(row=11, column=0, columnspan=2, sticky="e", pady=(18, 0))
+        ttk.Button(buttons, text="Cancel", command=self.dialog.destroy).pack(side="left", padx=(0, 8))
+        ttk.Button(buttons, text="Save changes", style="Accent.TButton",
+                   command=self._save).pack(side="left")
 
     def _save(self):
         username = self.username_entry.get().strip()
@@ -227,15 +258,16 @@ class EditPasswordDialog(_PasswordFormMixin):
         notes = self.notes_text.get("1.0", "end-1c").strip()
 
         if not username or not password:
-            messagebox.showerror("Error", "Username and password are required")
+            messagebox.showerror("Missing details", "Username and password are required.",
+                                 parent=self.dialog)
             return
 
         if self.manager.add_password(self.service, username, password, notes):
-            messagebox.showinfo("Success", "Password updated successfully")
+            messagebox.showinfo("Saved", "Password updated.", parent=self.dialog)
             self.refresh_callback()
             self.dialog.destroy()
         else:
-            messagebox.showerror("Error", "Failed to update password")
+            messagebox.showerror("Error", "Failed to update password.", parent=self.dialog)
 
 
 class PasswordGeneratorDialog:
@@ -243,54 +275,54 @@ class PasswordGeneratorDialog:
 
     def __init__(self, parent, copy_callback):
         self.copy_callback = copy_callback
+        self.dialog = _dialog(
+            parent, "Password generator", GENERATOR_DIALOG_WIDTH, GENERATOR_DIALOG_HEIGHT + 110)
+        inner = _panel(self.dialog)
 
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Password Generator")
-        self.dialog.geometry(f"{GENERATOR_DIALOG_WIDTH}x{GENERATOR_DIALOG_HEIGHT}")
-        self.dialog.transient(parent)
-        self.dialog.grab_set()
-        self._create_widgets()
-        self._generate()
+        ttk.Label(inner, text="Password generator", style="Title.TLabel").grid(
+            row=0, column=0, columnspan=2, sticky="w")
+        ttk.Label(inner, text="Create a strong password with secure randomness.",
+                  style="CardMuted.TLabel").grid(row=1, column=0, columnspan=2, sticky="w", pady=(3, 18))
 
-    def _create_widgets(self):
-        frame = ttk.Frame(self.dialog, padding="20")
-        frame.pack(fill="both", expand=True)
-
-        ttk.Label(frame, text="Generate Strong Password", font=FONT_SUBTITLE).pack(pady=10)
-
-        length_frame = ttk.Frame(frame)
-        length_frame.pack(pady=10, fill="x")
-        ttk.Label(length_frame, text="Length:", font=FONT_NORMAL).pack(side="left", padx=5)
+        ttk.Label(inner, text="Length", style="Field.TLabel").grid(
+            row=2, column=0, sticky="w", pady=(0, 6))
         self.length_var = tk.IntVar(value=DEFAULT_PASSWORD_LENGTH)
-        ttk.Spinbox(length_frame, from_=MIN_PASSWORD_LENGTH, to=MAX_PASSWORD_LENGTH,
-                    textvariable=self.length_var, width=10).pack(side="left", padx=5)
+        ttk.Spinbox(inner, from_=MIN_PASSWORD_LENGTH, to=MAX_PASSWORD_LENGTH,
+                    textvariable=self.length_var, width=8, font=FONT_BODY).grid(
+            row=2, column=1, sticky="w")
 
-        options_frame = ttk.Frame(frame)
-        options_frame.pack(pady=10, fill="x")
+        ttk.Label(inner, text="Include", style="Field.TLabel").grid(
+            row=3, column=0, columnspan=2, sticky="w", pady=(18, 6))
         self.uppercase_var = tk.BooleanVar(value=True)
         self.lowercase_var = tk.BooleanVar(value=True)
         self.digits_var = tk.BooleanVar(value=True)
         self.special_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(options_frame, text="Uppercase (A-Z)",
-                        variable=self.uppercase_var).pack(anchor="w", pady=2)
-        ttk.Checkbutton(options_frame, text="Lowercase (a-z)",
-                        variable=self.lowercase_var).pack(anchor="w", pady=2)
-        ttk.Checkbutton(options_frame, text="Digits (0-9)",
-                        variable=self.digits_var).pack(anchor="w", pady=2)
-        ttk.Checkbutton(options_frame, text="Special Characters (!@#$%)",
-                        variable=self.special_var).pack(anchor="w", pady=2)
+        options = [
+            ("Uppercase letters (A-Z)", self.uppercase_var),
+            ("Lowercase letters (a-z)", self.lowercase_var),
+            ("Digits (0-9)", self.digits_var),
+            ("Special characters", self.special_var),
+        ]
+        for index, (text, variable) in enumerate(options, start=4):
+            ttk.Checkbutton(inner, text=text, variable=variable,
+                            style="Card.TCheckbutton").grid(
+                row=index, column=0, columnspan=2, sticky="w", pady=2)
 
-        password_frame = ttk.Frame(frame)
-        password_frame.pack(pady=15, fill="x")
+        ttk.Label(inner, text="Result", style="Field.TLabel").grid(
+            row=8, column=0, columnspan=2, sticky="w", pady=(18, 6))
         self.password_var = tk.StringVar()
-        ttk.Entry(password_frame, textvariable=self.password_var,
-                  font=FONT_MONO, state="readonly").pack(fill="x", pady=5)
+        ttk.Entry(inner, textvariable=self.password_var, font=FONT_MONO,
+                  state="readonly").grid(row=9, column=0, columnspan=2, sticky="ew", ipady=4)
+        self.strength_label = ttk.Label(inner, text="", style="CardMuted.TLabel")
+        self.strength_label.grid(row=10, column=0, columnspan=2, sticky="w", pady=(6, 0))
 
-        button_frame = ttk.Frame(frame)
-        button_frame.pack(pady=10)
-        ttk.Button(button_frame, text="Generate", command=self._generate).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Copy", command=self._copy).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Close", command=self.dialog.destroy).pack(side="left", padx=5)
+        buttons = tk.Frame(inner, bg=SURFACE)
+        buttons.grid(row=11, column=0, columnspan=2, sticky="ew", pady=(20, 0))
+        ttk.Button(buttons, text="Close", command=self.dialog.destroy).pack(side="left")
+        ttk.Button(buttons, text="Copy", command=self._copy).pack(side="right", padx=(0, 8))
+        ttk.Button(buttons, text="Generate again", style="Accent.TButton",
+                   command=self._generate).pack(side="right")
+        self._generate()
 
     def _generate(self):
         password = PasswordGenerator.generate(
@@ -301,12 +333,17 @@ class PasswordGeneratorDialog:
             use_special=self.special_var.get(),
         )
         if password is None:
-            messagebox.showerror("Error", "Please select at least one character type")
+            messagebox.showerror("No character types", "Select at least one character type.",
+                                 parent=self.dialog)
             return
         self.password_var.set(password)
+        level, label, _ = PasswordStrengthChecker.check_strength(password)
+        self.strength_label.config(
+            text=f"Strength: {label}",
+            foreground=PasswordStrengthChecker.get_strength_color(level))
 
     def _copy(self):
         password = self.password_var.get()
         if password:
             self.copy_callback(password)
-            messagebox.showinfo("Success", "Password copied to clipboard")
+            messagebox.showinfo("Copied", "Password copied to clipboard.", parent=self.dialog)

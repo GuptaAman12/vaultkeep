@@ -1,18 +1,25 @@
 """Main application window: login screen and vault list."""
 
+import os
 import tkinter as tk
 from datetime import datetime
 from tkinter import filedialog, messagebox, ttk
 
 from ..constants import (
-    APP_NAME, EXPORT_FILE_EXTENSION, EXPORT_FILE_TYPES, FONT_LARGE, FONT_NORMAL,
-    FONT_SMALL, FONT_TITLE, SEARCH_DEBOUNCE_MS, THEME, WINDOW_HEIGHT, WINDOW_WIDTH,
+    APP_NAME, EXPORT_FILE_EXTENSION, EXPORT_FILE_TYPES, SEARCH_DEBOUNCE_MS,
+    WINDOW_HEIGHT, WINDOW_WIDTH,
 )
 from ..core.vault import PasswordManager
 from ..logging_config import logger
 from .dialogs import (
     AddPasswordDialog, EditPasswordDialog, PasswordGeneratorDialog, ViewPasswordDialog,
 )
+from .theme import (
+    ACCENT, BG, MUTED, SURFACE, SURFACE_ALT, TEXT, apply_theme, card, menu,
+    FONT_BODY, FONT_BRAND,
+)
+
+SEARCH_PLACEHOLDER = "Search services..."
 
 
 class PasswordManagerGUI:
@@ -22,132 +29,236 @@ class PasswordManagerGUI:
         self.root = root
         self.root.title(APP_NAME)
         self.root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
+        self.root.minsize(720, 520)
         self.manager = PasswordManager()
         self.authenticated = False
         self._search_job = None
-
-        ttk.Style().theme_use(THEME)
+        apply_theme(root)
         self.show_login()
 
     def show_login(self):
         """Show the master password prompt."""
+        self.root.config(menu="")
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        login_frame = ttk.Frame(self.root, padding="50")
-        login_frame.place(relx=0.5, rely=0.5, anchor="center")
+        first_time = not os.path.exists(self.manager.data_file)
+        panel = card(self.root)
+        panel.place(relx=0.5, rely=0.5, anchor="center")
+        inner = tk.Frame(panel, bg=SURFACE)
+        inner.grid(row=0, column=0, padx=36, pady=32)
 
-        ttk.Label(login_frame, text=APP_NAME, font=FONT_TITLE).grid(
-            row=0, column=0, columnspan=2, pady=20)
-        ttk.Label(login_frame, text="Master Password:", font=FONT_LARGE).grid(
-            row=1, column=0, sticky="e", padx=5, pady=10)
+        badge = tk.Canvas(inner, width=46, height=46, bg=SURFACE, highlightthickness=0)
+        badge.create_oval(2, 2, 44, 44, fill=ACCENT)
+        badge.create_text(23, 24, text="V", fill="white", font=FONT_BRAND)
+        badge.grid(row=0, column=0, columnspan=2, pady=(0, 14))
 
+        title = "Create your vault" if first_time else f"Welcome back to {APP_NAME}"
+        ttk.Label(inner, text=title, style="Title.TLabel").grid(
+            row=1, column=0, columnspan=2, pady=(0, 4))
+        subtitle = ("Choose a master password to get started."
+                    if first_time else "Enter your master password to unlock your vault.")
+        ttk.Label(inner, text=subtitle, style="CardMuted.TLabel").grid(
+            row=2, column=0, columnspan=2, pady=(0, 22))
+
+        ttk.Label(inner, text="Master password", style="Field.TLabel").grid(
+            row=3, column=0, columnspan=2, sticky="w", pady=(0, 6))
         self.master_password_entry = ttk.Entry(
-            login_frame, show="*", width=30, font=FONT_LARGE)
-        self.master_password_entry.grid(row=1, column=1, padx=5, pady=10)
-        self.master_password_entry.focus()
-        self.master_password_entry.bind("<Return>", lambda e: self.login())
+            inner, show="\u2022", width=28, font=FONT_BODY)
+        self.master_password_entry.grid(row=4, column=0, sticky="ew", ipady=3)
+        self._master_visible = False
+        self.master_toggle = ttk.Button(
+            inner, text="Show", width=8, command=self._toggle_master_visibility)
+        self.master_toggle.grid(row=4, column=1, padx=(8, 0))
 
-        ttk.Button(login_frame, text="Login", command=self.login).grid(
-            row=2, column=0, columnspan=2, pady=20)
-        ttk.Label(login_frame,
-                  text="First time? Enter a new master password to create your vault.",
-                  font=FONT_SMALL, foreground="gray").grid(row=3, column=0, columnspan=2)
+        self.login_error = ttk.Label(inner, text="", style="Error.TLabel")
+        self.login_error.grid(row=5, column=0, columnspan=2, sticky="w", pady=(8, 0))
+
+        action = "Create vault" if first_time else "Unlock vault"
+        self.login_button = ttk.Button(
+            inner, text=action, style="Accent.TButton", command=self.login)
+        self.login_button.grid(row=6, column=0, columnspan=2, sticky="ew", pady=(16, 0))
+        self.master_password_entry.bind("<Return>", lambda event: self.login())
+
+        note = ("Keep this password safe. It cannot be recovered."
+                if first_time else "Your vault is encrypted on this device.")
+        ttk.Label(inner, text=note, style="CardMuted.TLabel").grid(
+            row=7, column=0, columnspan=2, pady=(18, 0))
+        self.master_password_entry.focus()
+
+    def _toggle_master_visibility(self):
+        self._master_visible = not self._master_visible
+        self.master_password_entry.config(show="" if self._master_visible else "\u2022")
+        self.master_toggle.config(text="Hide" if self._master_visible else "Show")
 
     def login(self):
         """Unlock the vault with the entered master password."""
         master_password = self.master_password_entry.get()
         if not master_password:
-            messagebox.showerror("Error", "Please enter master password")
+            self.login_error.config(text="Enter your master password.")
             return
 
         if self.manager.initialize(master_password):
             self.authenticated = True
             self.show_main_window()
         else:
-            messagebox.showerror("Error", "Invalid master password")
+            self.login_error.config(text="That password did not unlock the vault.")
             self.master_password_entry.delete(0, tk.END)
+            self.master_password_entry.focus()
+
+    def lock(self):
+        """Drop the decrypted entries and return to the login screen."""
+        if self._search_job is not None:
+            self.root.after_cancel(self._search_job)
+            self._search_job = None
+        self.manager.passwords.clear()
+        self.manager.crypto.cipher = None
+        self.authenticated = False
+        self.show_login()
 
     def show_main_window(self):
         """Show the vault list and menu bar."""
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        menubar = tk.Menu(self.root)
+        menubar = menu(self.root)
         self.root.config(menu=menubar)
-        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu = menu(menubar)
         menubar.add_cascade(label="File", menu=file_menu)
         file_menu.add_command(label="Export Passwords...", command=self.export_passwords)
         file_menu.add_command(label="Import Passwords...", command=self.import_passwords)
         file_menu.add_separator()
+        file_menu.add_command(label="Lock Vault", command=self.lock)
         file_menu.add_command(label="Exit", command=self.root.quit)
-        help_menu = tk.Menu(menubar, tearoff=0)
+        help_menu = menu(menubar)
         menubar.add_cascade(label="Help", menu=help_menu)
         help_menu.add_command(label="About", command=self.show_about)
 
-        self.root.grid_rowconfigure(0, weight=1)
+        self.root.grid_rowconfigure(1, weight=1)
         self.root.grid_columnconfigure(0, weight=1)
-        main_frame = ttk.Frame(self.root)
-        main_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-        main_frame.grid_rowconfigure(1, weight=1)
-        main_frame.grid_columnconfigure(0, weight=1)
 
-        top_frame = ttk.Frame(main_frame)
-        top_frame.grid(row=0, column=0, sticky="ew", pady=(0, 10))
-        ttk.Label(top_frame, text="Search:", font=FONT_NORMAL).pack(side="left", padx=5)
+        header = ttk.Frame(self.root)
+        header.grid(row=0, column=0, sticky="ew", padx=18, pady=(16, 10))
+        header.grid_columnconfigure(0, weight=1)
+        ttk.Label(header, text=APP_NAME, style="Brand.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(header, text="Encrypted on this device", style="Muted.TLabel").grid(
+            row=1, column=0, sticky="w")
+        ttk.Button(header, text="Lock", command=self.lock).grid(row=0, column=1, rowspan=2, padx=8)
+
+        toolbar = card(self.root)
+        toolbar.grid(row=1, column=0, sticky="ew", padx=18, pady=(0, 10))
+        tools = tk.Frame(toolbar, bg=SURFACE)
+        tools.grid(row=0, column=0, sticky="ew", padx=14, pady=12)
+        tools.grid_columnconfigure(1, weight=1)
+
         self.search_var = tk.StringVar()
         self.search_var.trace("w", self.on_search)
-        ttk.Entry(top_frame, textvariable=self.search_var, width=30).pack(side="left", padx=5)
-        ttk.Button(top_frame, text="+ Add Password",
-                   command=self.add_password_dialog).pack(side="right", padx=5)
-        ttk.Button(top_frame, text="Generate Password",
-                   command=self.generate_password_dialog).pack(side="right", padx=5)
+        self.search_entry = ttk.Entry(
+            tools, textvariable=self.search_var, width=26, font=FONT_BODY)
+        self.search_entry.grid(row=0, column=0, sticky="w")
+        self.search_entry.insert(0, SEARCH_PLACEHOLDER)
+        self.search_entry.config(foreground=MUTED)
+        self.search_entry.bind("<FocusIn>", self._search_focus_in)
+        self.search_entry.bind("<FocusOut>", self._search_focus_out)
+        ttk.Button(tools, text="Clear", command=self.clear_search).grid(
+            row=0, column=1, sticky="w", padx=(8, 0))
 
-        list_frame = ttk.Frame(main_frame)
-        list_frame.grid(row=1, column=0, sticky="nsew")
-        list_frame.grid_rowconfigure(0, weight=1)
-        list_frame.grid_columnconfigure(0, weight=1)
+        self.count_label = ttk.Label(tools, text="", style="CardMuted.TLabel")
+        self.count_label.grid(row=0, column=2, padx=(0, 14))
+        ttk.Button(tools, text="Generate", command=self.generate_password_dialog).grid(
+            row=0, column=3, padx=(0, 8))
+        ttk.Button(tools, text="+ Add password", style="Accent.TButton",
+                   command=self.add_password_dialog).grid(row=0, column=4)
 
-        columns = ("Service", "Username")
-        self.tree = ttk.Treeview(list_frame, columns=columns, show="tree headings", height=20)
-        self.tree.grid(row=0, column=0, sticky="nsew")
-        self.tree.column("#0", width=0, stretch=False)
-        self.tree.column("Service", width=300)
-        self.tree.column("Username", width=300)
-        self.tree.heading("Service", text="Service / Website")
-        self.tree.heading("Username", text="Username / Email")
+        list_card = card(self.root)
+        list_card.grid(row=2, column=0, sticky="nsew", padx=18)
+        list_card.grid_rowconfigure(0, weight=1)
+        list_card.grid_columnconfigure(0, weight=1)
 
-        scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.tree.yview)
+        self.tree = ttk.Treeview(
+            list_card, columns=("Service", "Username"), show="headings",
+            height=14, selectmode="browse")
+        self.tree.grid(row=0, column=0, sticky="nsew", padx=(1, 0), pady=1)
+        self.tree.heading("Service", text="SERVICE / WEBSITE", anchor="w")
+        self.tree.heading("Username", text="USERNAME / EMAIL", anchor="w")
+        self.tree.column("Service", width=300, anchor="w")
+        self.tree.column("Username", width=300, anchor="w")
+        self.tree.tag_configure("odd", background=SURFACE_ALT)
+        self.tree.bind("<Double-Button-1>", self.view_password)
+        self.tree.bind("<Button-3>", self.show_context_menu)
+
+        scrollbar = ttk.Scrollbar(list_card, orient="vertical", command=self.tree.yview)
         scrollbar.grid(row=0, column=1, sticky="ns")
         self.tree.configure(yscrollcommand=scrollbar.set)
 
-        self.tree.bind("<Double-Button-1>", self.view_password)
-        self.tree.bind("<Button-3>", self.show_context_menu)
-        self.context_menu = tk.Menu(self.root, tearoff=0)
+        self.empty_label = tk.Label(
+            list_card,
+            text="No passwords here yet.\nUse Add password to create your first entry.",
+            bg=SURFACE, fg=MUTED, font=FONT_BODY, justify="center")
+        self.empty_label.place(relx=0.5, rely=0.5, anchor="center")
+
+        ttk.Label(self.root,
+                  text="Double-click an entry to view it. Right-click for more actions.",
+                  style="Muted.TLabel").grid(row=3, column=0, sticky="w", padx=20, pady=(8, 12))
+
+        self.context_menu = menu(self.root)
         self.context_menu.add_command(label="View", command=self.view_password)
-        self.context_menu.add_command(label="Copy Password", command=self.copy_password)
+        self.context_menu.add_command(label="Copy password", command=self.copy_password)
+        self.context_menu.add_separator()
         self.context_menu.add_command(label="Edit", command=self.edit_password)
         self.context_menu.add_command(label="Delete", command=self.delete_password)
 
         self.refresh_list()
 
-    def refresh_list(self, filter_text=""):
+    def _search_value(self):
+        value = self.search_var.get().strip()
+        return "" if value == SEARCH_PLACEHOLDER else value
+
+    def _search_focus_in(self, event=None):
+        if self.search_var.get() == SEARCH_PLACEHOLDER:
+            self.search_entry.delete(0, tk.END)
+            self.search_entry.config(foreground=TEXT)
+
+    def _search_focus_out(self, event=None):
+        if not self.search_var.get().strip():
+            self.search_entry.insert(0, SEARCH_PLACEHOLDER)
+            self.search_entry.config(foreground=MUTED)
+
+    def clear_search(self):
+        self.search_var.set(SEARCH_PLACEHOLDER)
+        self.search_entry.config(foreground=MUTED)
+        self.refresh_list("")
+
+    def refresh_list(self, filter_text=None):
         """Rebuild the list, optionally limited to services matching the filter."""
-        self.tree.delete(*self.tree.get_children())
+        if filter_text is None:
+            filter_text = self._search_value()
         services = self.manager.search(filter_text) if filter_text else self.manager.get_all_services()
-        for service in services:
+
+        self.tree.delete(*self.tree.get_children())
+        for index, service in enumerate(services):
             data = self.manager.get_password(service)
-            self.tree.insert("", "end", values=(service, data["username"]))
+            tags = ("odd",) if index % 2 else ()
+            self.tree.insert("", "end", values=(service, data["username"]), tags=tags)
+        self.count_label.config(text=f"{len(services)} {'entry' if len(services) == 1 else 'entries'}")
+
+        if services:
+            self.empty_label.place_forget()
+        else:
+            self.empty_label.place(relx=0.5, rely=0.5, anchor="center")
+            self.empty_label.lift()
 
     def on_search(self, *args):
         """Debounce search so typing does not rebuild the list on every keystroke."""
+        if self.search_var.get() == SEARCH_PLACEHOLDER:
+            return
         if self._search_job is not None:
             self.root.after_cancel(self._search_job)
         self._search_job = self.root.after(SEARCH_DEBOUNCE_MS, self._apply_search)
 
     def _apply_search(self):
         self._search_job = None
-        self.refresh_list(self.search_var.get().strip())
+        self.refresh_list(self._search_value())
 
     def show_context_menu(self, event):
         item = self.tree.identify_row(event.y)
@@ -196,9 +307,9 @@ class PasswordManagerGUI:
         if service is None:
             return
         if messagebox.askyesno("Confirm Delete",
-                              f"Are you sure you want to delete the password for '{service}'?"):
+                              f"Delete the saved password for '{service}'?"):
             if self.manager.delete_password(service):
-                messagebox.showinfo("Success", "Password deleted successfully")
+                messagebox.showinfo("Success", "Password deleted")
                 self.refresh_list()
             else:
                 messagebox.showerror("Error", "Failed to delete password")
@@ -228,51 +339,52 @@ class PasswordManagerGUI:
             return
 
         dialog = tk.Toplevel(self.root)
-        dialog.title("Import Options")
-        dialog.geometry("400x200")
+        dialog.title("Import Passwords")
+        dialog.geometry("460x320")
         dialog.transient(self.root)
         dialog.grab_set()
-        frame = ttk.Frame(dialog, padding="20")
-        frame.pack(fill="both", expand=True)
+        dialog.configure(bg=BG)
+        panel = card(dialog)
+        panel.place(relx=0.5, rely=0.5, anchor="center", width=420, height=270)
+        inner = tk.Frame(panel, bg=SURFACE)
+        inner.grid(row=0, column=0, padx=24, pady=22, sticky="ew")
+        inner.grid_columnconfigure(0, weight=1)
 
-        ttk.Label(frame, text="How should conflicts be handled?",
-                  font=FONT_LARGE).pack(pady=10)
-        ttk.Label(frame, text="(Services that already exist in your vault)",
-                  font=FONT_SMALL).pack(pady=5)
+        ttk.Label(inner, text="Resolve duplicate services", style="Field.TLabel").grid(
+            row=0, column=0, sticky="w", pady=(0, 4))
+        ttk.Label(inner, text="These services already exist in your vault.",
+                  style="CardMuted.TLabel").grid(row=1, column=0, sticky="w", pady=(0, 16))
+
         strategy_var = tk.StringVar(value="skip")
-        ttk.Radiobutton(frame, text="Skip - Keep existing passwords",
-                        variable=strategy_var, value="skip").pack(anchor="w", pady=5)
-        ttk.Radiobutton(frame, text="Overwrite - Replace with imported passwords",
-                        variable=strategy_var, value="overwrite").pack(anchor="w", pady=5)
-        ttk.Radiobutton(frame, text="Rename - Import as new entries with suffix",
-                        variable=strategy_var, value="rename").pack(anchor="w", pady=5)
+        ttk.Radiobutton(inner, text="Skip existing entries",
+                        variable=strategy_var, value="skip").grid(row=2, column=0, sticky="w", pady=3)
+        ttk.Radiobutton(inner, text="Overwrite with imported entries",
+                        variable=strategy_var, value="overwrite").grid(row=3, column=0, sticky="w", pady=3)
+        ttk.Radiobutton(inner, text="Keep both, renaming imports",
+                        variable=strategy_var, value="rename").grid(row=4, column=0, sticky="w", pady=3)
 
         def do_import():
             strategy = strategy_var.get()
             dialog.destroy()
             count = self.manager.import_from_file(filepath, strategy)
             if count >= 0:
-                messagebox.showinfo("Success", f"Imported {count} passwords from:\n{filepath}")
+                messagebox.showinfo("Success", f"Imported {count} passwords")
                 self.refresh_list()
                 logger.info(f"User imported {count} passwords with strategy: {strategy}")
             else:
                 messagebox.showerror("Error", "Failed to import passwords")
 
-        button_frame = ttk.Frame(frame)
-        button_frame.pack(pady=20)
-        ttk.Button(button_frame, text="Import", command=do_import).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(side="left", padx=5)
+        buttons = tk.Frame(inner, bg=SURFACE)
+        buttons.grid(row=5, column=0, sticky="e", pady=(20, 0))
+        ttk.Button(buttons, text="Cancel", command=dialog.destroy).pack(side="left", padx=(0, 8))
+        ttk.Button(buttons, text="Import", style="Accent.TButton",
+                   command=do_import).pack(side="left")
 
     def show_about(self):
         messagebox.showinfo(
             f"About {APP_NAME}",
-            f"{APP_NAME} v2.1\n\n"
-            "Features:\n"
-            "• AES-128 encryption (Fernet)\n"
-            "• PBKDF2 key derivation (100,000 iterations)\n"
-            "• Password strength checker\n"
-            "• Secure password generator\n"
-            "• Export/Import functionality\n"
-            "• Comprehensive logging\n\n"
-            "Keep your master password safe!",
+            f"{APP_NAME}\n\n"
+            "A local password vault with AES encryption, a strength meter, a secure "
+            "generator and JSON backups.\n\n"
+            "Your master password is never stored. Keep it safe.",
         )

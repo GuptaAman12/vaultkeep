@@ -38,6 +38,7 @@ On first launch, enter a new master password to create the vault. On later launc
 | Generate a password | Click "Generate Password" |
 | Back up | File > Export Passwords |
 | Restore | File > Import Passwords |
+| Lock the vault | Click Lock in the header or File > Lock Vault |
 
 Import conflicts can be handled in three ways:
 
