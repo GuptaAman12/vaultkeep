@@ -4,12 +4,13 @@ import os
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from vaultkeep.core.backup import BackupManager
-from vaultkeep.core.vault import PasswordManager
+from vaultkeep.core.vault import META_KEY, PasswordManager
 from vaultkeep.security.generator import PasswordGenerator
 from vaultkeep.security.strength import PasswordStrengthChecker
 
@@ -42,6 +43,35 @@ class VaultTests(unittest.TestCase):
         vault.add_password("GitLab", "user", "pw")
         self.assertEqual(vault.search("git"), ["GitHub", "GitLab"])
         self.assertEqual(vault.get_all_services(), ["GitHub", "GitLab"])
+
+    def test_change_master_password(self):
+        vault = PasswordManager(self.data, self.salt)
+        vault.initialize("old master")
+        vault.add_password("Gmail", "me@example.com", "s3cret!")
+
+        with self.assertLogs("PasswordManager", level="ERROR"):
+            self.assertFalse(vault.change_master_password("wrong", "new master"))
+        self.assertTrue(vault.change_master_password("old master", "new master"))
+
+        reopened = PasswordManager(self.data, self.salt)
+        self.assertTrue(reopened.initialize("new master"))
+        self.assertEqual(reopened.get_password("Gmail")["username"], "me@example.com")
+        with self.assertLogs("PasswordManager", level="ERROR"):
+            self.assertFalse(reopened.initialize("old master"))
+
+    def test_password_reminder_and_snooze(self):
+        vault = PasswordManager(self.data, self.salt)
+        vault.initialize("master")
+        self.assertFalse(vault.password_change_due())
+
+        meta = vault.get_meta()
+        meta["password_changed_at"] = (datetime.now() - timedelta(days=61)).isoformat()
+        vault.passwords[META_KEY] = meta
+        vault.save()
+        self.assertTrue(vault.password_change_due())
+
+        vault.snooze_password_reminder()
+        self.assertFalse(vault.password_change_due())
 
     def test_backup_merge_strategies(self):
         existing = {"Site": {"username": "old", "password": "old"}}

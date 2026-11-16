@@ -339,3 +339,90 @@ class PasswordGeneratorDialog:
         if password:
             self.copy_callback(password)
             messagebox.showinfo("Copied", "Password copied to clipboard.", parent=self.dialog)
+
+
+class ChangePasswordDialog:
+    """Dialog for replacing the master password."""
+
+    def __init__(self, parent, manager, on_success):
+        self.manager = manager
+        self.on_success = on_success
+        self.dialog = _dialog(parent, "Change master password",
+                              DIALOG_WIDTH + 40, DIALOG_HEIGHT + 170)
+        inner = _panel(self.dialog)
+
+        ttk.Label(inner, text="Change master password", style="Title.TLabel").grid(
+            row=0, column=0, columnspan=2, sticky="w")
+        ttk.Label(inner, text="Your vault will be re-encrypted with the new password.",
+                  style="CardMuted.TLabel").grid(row=1, column=0, columnspan=2, sticky="w", pady=(3, 18))
+
+        ttk.Label(inner, text="Current master password", style="Field.TLabel").grid(
+            row=2, column=0, columnspan=2, sticky="w", pady=(0, 5))
+        self.current_entry = ttk.Entry(inner, show="\u2022", width=36, font=FONT_BODY)
+        self.current_entry.grid(row=3, column=0, columnspan=2, sticky="ew", ipady=3)
+        self.current_entry.focus()
+
+        ttk.Label(inner, text="New master password", style="Field.TLabel").grid(
+            row=4, column=0, columnspan=2, sticky="w", pady=(14, 5))
+        self.new_entry = ttk.Entry(inner, show="\u2022", width=36, font=FONT_BODY)
+        self.new_entry.grid(row=5, column=0, columnspan=2, sticky="ew", ipady=3)
+        self.new_entry.bind("<KeyRelease>", self._check_strength)
+
+        self.strength_meter = StrengthMeter(inner)
+        self.strength_meter.grid(row=6, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+
+        ttk.Label(inner, text="Confirm new password", style="Field.TLabel").grid(
+            row=7, column=0, columnspan=2, sticky="w", pady=(10, 5))
+        self.confirm_entry = ttk.Entry(inner, show="\u2022", width=36, font=FONT_BODY)
+        self.confirm_entry.grid(row=8, column=0, columnspan=2, sticky="ew", ipady=3)
+
+        self.show_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(inner, text="Show passwords", variable=self.show_var,
+                        command=self._toggle, style="Card.TCheckbutton").grid(
+            row=9, column=0, columnspan=2, sticky="w", pady=(12, 0))
+
+        buttons = tk.Frame(inner, bg=SURFACE)
+        buttons.grid(row=10, column=0, columnspan=2, sticky="e", pady=(16, 0))
+        ttk.Button(buttons, text="Cancel", command=self.dialog.destroy).pack(side="left", padx=(0, 8))
+        ttk.Button(buttons, text="Change password", style="Accent.TButton",
+                   command=self._save).pack(side="left")
+
+    def _toggle(self):
+        show = "" if self.show_var.get() else "\u2022"
+        for entry in (self.current_entry, self.new_entry, self.confirm_entry):
+            entry.config(show=show)
+
+    def _check_strength(self, event=None):
+        password = self.new_entry.get()
+        if not password:
+            self.strength_meter.set(0)
+            return
+        level, label, _ = PasswordStrengthChecker.check_strength(password)
+        self.strength_meter.set(level, label)
+
+    def _save(self):
+        current = self.current_entry.get()
+        new = self.new_entry.get()
+        confirm = self.confirm_entry.get()
+
+        if not current or not new:
+            messagebox.showerror("Missing details", "Enter your current and new master password.",
+                                 parent=self.dialog)
+            return
+        if new != confirm:
+            messagebox.showerror("Mismatch", "The new passwords do not match.", parent=self.dialog)
+            return
+        if not self.manager.verify_master_password(current):
+            messagebox.showerror("Incorrect", "Your current master password is incorrect.",
+                                 parent=self.dialog)
+            return
+        if self.manager.change_master_password(current, new):
+            messagebox.showinfo(
+                "Password changed",
+                "Your master password was changed. Remember the new one, it cannot be recovered.",
+                parent=self.dialog,
+            )
+            self.dialog.destroy()
+            self.on_success()
+        else:
+            messagebox.showerror("Error", "Failed to re-encrypt the vault.", parent=self.dialog)

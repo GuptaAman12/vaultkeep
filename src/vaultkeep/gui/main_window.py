@@ -13,7 +13,8 @@ from ..constants import (
 from ..core.vault import PasswordManager
 from ..logging_config import logger
 from .dialogs import (
-    AddPasswordDialog, EditPasswordDialog, PasswordGeneratorDialog, ViewPasswordDialog,
+    AddPasswordDialog, ChangePasswordDialog, EditPasswordDialog,
+    PasswordGeneratorDialog, ViewPasswordDialog,
 )
 from .theme import (
     BG, MUTED, SURFACE, SURFACE_ALT, TEXT, apply_theme, card, menu, FONT_BODY,
@@ -105,6 +106,7 @@ class PasswordManagerGUI:
         if self.manager.initialize(master_password):
             self.authenticated = True
             self.show_main_window()
+            self._maybe_remind_password_change()
         else:
             self.login_error.config(text="That password did not unlock the vault.")
             self.master_password_entry.delete(0, tk.END)
@@ -135,6 +137,9 @@ class PasswordManagerGUI:
         menubar.add_cascade(label="File", menu=file_menu)
         file_menu.add_command(label="Export Passwords...", command=self.export_passwords)
         file_menu.add_command(label="Import Passwords...", command=self.import_passwords)
+        file_menu.add_separator()
+        file_menu.add_command(label="Change Master Password...",
+                              command=self.change_password_dialog)
         file_menu.add_separator()
         file_menu.add_command(label="Lock Vault", command=self.lock)
         file_menu.add_command(label="Exit", command=self.root.quit)
@@ -345,6 +350,22 @@ class PasswordManagerGUI:
     def generate_password_dialog(self):
         PasswordGeneratorDialog(self.root, self.copy_to_clipboard)
 
+    def change_password_dialog(self):
+        ChangePasswordDialog(self.root, self.manager, self.refresh_list)
+
+    def _maybe_remind_password_change(self):
+        if not self.manager.password_change_due():
+            return
+        answer = messagebox.askyesnocancel(
+            "Master password reminder",
+            "It has been over two months since you changed your master password.\n\n"
+            "Change it now?",
+        )
+        if answer is True:
+            self.change_password_dialog()
+        else:
+            self.manager.snooze_password_reminder()
+
     def export_passwords(self):
         default_filename = f"passwords_backup_{datetime.now():%Y%m%d_%H%M%S}.json"
         filepath = filedialog.asksaveasfilename(
@@ -355,7 +376,7 @@ class PasswordManagerGUI:
         )
         if filepath:
             if self.manager.export_to_file(filepath):
-                count = len(self.manager.passwords)
+                count = len(self.manager.get_all_services())
                 messagebox.showinfo("Success", f"Exported {count} passwords to:\n{filepath}")
                 logger.info(f"User exported {count} passwords")
             else:

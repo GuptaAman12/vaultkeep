@@ -5,6 +5,7 @@ A local, encrypted password vault with a desktop GUI. Entries are stored in one 
 ## Features
 
 - Master password protection with PBKDF2 key derivation
+- Change the master password at any time, with a reminder every two months
 - Fernet (AES-128) encryption for the whole vault
 - Add, view, edit, delete and search entries
 - Real-time password strength meter
@@ -40,6 +41,9 @@ On first launch, enter a new master password to create the vault. On later launc
 | Back up | File > Export Passwords |
 | Restore | File > Import Passwords |
 | Lock the vault | Click Lock in the header or File > Lock Vault |
+| Change the master password | File > Change Master Password |
+
+After 60 days, login asks whether to change the master password. Choosing no or cancel snoozes the reminder for 7 days.
 
 Import conflicts can be handled in three ways:
 
