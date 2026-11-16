@@ -60,6 +60,15 @@ class SecurityTests(unittest.TestCase):
         self.assertTrue(PasswordGenerator.generate(20, False, False, True, False).isdigit())
         self.assertIsNone(PasswordGenerator.generate(16, False, False, False, False))
 
+    def test_generator_includes_every_selected_type(self):
+        for _ in range(25):
+            password = PasswordGenerator.generate(12)
+            self.assertEqual(len(password), 12)
+            self.assertTrue(any(c.isupper() for c in password))
+            self.assertTrue(any(c.islower() for c in password))
+            self.assertTrue(any(c.isdigit() for c in password))
+            self.assertTrue(any(not c.isalnum() for c in password))
+
     def test_strength(self):
         self.assertLess(
             PasswordStrengthChecker.check_strength("password")[0],

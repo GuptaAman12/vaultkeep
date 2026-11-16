@@ -5,6 +5,8 @@ import string
 
 from ..constants import DEFAULT_PASSWORD_LENGTH
 
+SPECIAL_CHARS = "!@#$%^&*()-_=+[]{}|;:,.<>?"
+
 
 class PasswordGenerator:
     """Generates passwords from the selected character classes."""
@@ -12,17 +14,24 @@ class PasswordGenerator:
     @staticmethod
     def generate(length=DEFAULT_PASSWORD_LENGTH, use_uppercase=True, use_lowercase=True,
                  use_digits=True, use_special=True):
-        """Return a password, or None if no character type is selected."""
-        chars = ""
+        """Return a password containing every selected character type."""
+        groups = []
         if use_uppercase:
-            chars += string.ascii_uppercase
+            groups.append(string.ascii_uppercase)
         if use_lowercase:
-            chars += string.ascii_lowercase
+            groups.append(string.ascii_lowercase)
         if use_digits:
-            chars += string.digits
+            groups.append(string.digits)
         if use_special:
-            chars += "!@#$%^&*()-_=+[]{}|;:,.<>?"
+            groups.append(SPECIAL_CHARS)
 
-        if not chars:
+        if not groups:
             return None
-        return "".join(secrets.choice(chars) for _ in range(length))
+        if length < len(groups):
+            return None
+
+        chars = "".join(groups)
+        password_chars = [secrets.choice(group) for group in groups]
+        password_chars.extend(secrets.choice(chars) for _ in range(length - len(password_chars)))
+        secrets.SystemRandom().shuffle(password_chars)
+        return "".join(password_chars)

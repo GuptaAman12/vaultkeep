@@ -11,6 +11,7 @@ A local, encrypted password vault with a desktop GUI. Entries are stored in one 
 - Secure password generator with adjustable length and character types
 - JSON export and import with conflict strategies
 - Audit logging for vault operations
+- Clipboard clears itself 30 seconds after a copy, or immediately on lock
 - Atomic file writes to avoid a half-written vault after a crash
 
 ## Quick start

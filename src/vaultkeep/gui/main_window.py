@@ -7,8 +7,8 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from ..constants import (
-    APP_NAME, EXPORT_FILE_EXTENSION, EXPORT_FILE_TYPES, SEARCH_DEBOUNCE_MS,
-    WINDOW_HEIGHT, WINDOW_WIDTH,
+    APP_NAME, CLIPBOARD_CLEAR_MS, EXPORT_FILE_EXTENSION, EXPORT_FILE_TYPES,
+    SEARCH_DEBOUNCE_MS, WINDOW_HEIGHT, WINDOW_WIDTH,
 )
 from ..core.vault import PasswordManager
 from ..logging_config import logger
@@ -34,6 +34,8 @@ class PasswordManagerGUI:
         self.manager = PasswordManager()
         self.authenticated = False
         self._search_job = None
+        self._clipboard_job = None
+        self._clipboard_text = None
         apply_theme(root)
         self.logo = tk.PhotoImage(file=str(LOGO_PATH))
         self.logo_small = self.logo.subsample(12)
@@ -113,6 +115,10 @@ class PasswordManagerGUI:
         if self._search_job is not None:
             self.root.after_cancel(self._search_job)
             self._search_job = None
+        if self._clipboard_job is not None:
+            self.root.after_cancel(self._clipboard_job)
+            self._clipboard_job = None
+        self._clear_clipboard(self._clipboard_text)
         self.manager.passwords.clear()
         self.manager.crypto.cipher = None
         self.authenticated = False
@@ -300,6 +306,22 @@ class PasswordManagerGUI:
         self.root.clipboard_clear()
         self.root.clipboard_append(text)
         self.root.update()  # Required for the clipboard to work on Windows
+        self._clipboard_text = text
+        if self._clipboard_job is not None:
+            self.root.after_cancel(self._clipboard_job)
+        self._clipboard_job = self.root.after(
+            CLIPBOARD_CLEAR_MS, self._clear_clipboard, text)
+
+    def _clear_clipboard(self, text):
+        self._clipboard_job = None
+        if text is None:
+            return
+        try:
+            if self.root.clipboard_get() == text:
+                self.root.clipboard_clear()
+                self.root.update()
+        except tk.TclError:
+            pass
 
     def edit_password(self):
         service = self.selected_service()
