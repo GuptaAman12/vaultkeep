@@ -75,8 +75,6 @@ def apply_theme(root, configure_style=True):
     style.configure("Vertical.TScrollbar", background=SURFACE_ALT,
                     troughcolor=SURFACE, bordercolor=SURFACE,
                     arrowcolor=MUTED, darkcolor=BORDER, lightcolor=BORDER)
-    style.configure("TProgressbar", background=ACCENT, troughcolor=SURFACE_ALT,
-                    thickness=7, borderwidth=0)
 
 
 def card(parent, **kwargs):

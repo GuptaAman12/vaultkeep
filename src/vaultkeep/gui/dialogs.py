@@ -9,6 +9,7 @@ from ..constants import (
 )
 from ..security.generator import PasswordGenerator
 from ..security.strength import PasswordStrengthChecker
+from .strength_meter import StrengthMeter
 from .theme import BG, BORDER, SURFACE, TEXT, card, FONT_BODY, FONT_MONO
 
 
@@ -68,11 +69,8 @@ class _PasswordFormMixin:
     def _add_strength_ui(self, inner, row):
         ttk.Label(inner, text="Strength", style="Field.TLabel").grid(
             row=row, column=0, columnspan=2, sticky="w", pady=(14, 5))
-        self.strength_bar = ttk.Progressbar(
-            inner, maximum=4, mode="determinate", style="Strength.Horizontal.TProgressbar")
-        self.strength_bar.grid(row=row + 1, column=0, sticky="ew")
-        self.strength_label = ttk.Label(inner, text="-", style="CardMuted.TLabel")
-        self.strength_label.grid(row=row + 1, column=1, padx=(10, 0))
+        self.strength_meter = StrengthMeter(inner)
+        self.strength_meter.grid(row=row + 1, column=0, columnspan=2, sticky="ew")
         self.strength_feedback = ttk.Label(inner, text="", style="CardMuted.TLabel")
         self.strength_feedback.grid(row=row + 2, column=0, columnspan=2, sticky="w", pady=(4, 0))
         self._check_strength()
@@ -80,15 +78,11 @@ class _PasswordFormMixin:
     def _check_strength(self, event=None):
         password = self.password_entry.get()
         if not password:
-            self.strength_bar.config(value=0)
-            self.strength_label.config(text="-", foreground="#64748b")
+            self.strength_meter.set(0)
             self.strength_feedback.config(text="")
             return
         level, label, feedback = PasswordStrengthChecker.check_strength(password)
-        color = PasswordStrengthChecker.get_strength_color(level)
-        ttk.Style().configure("Strength.Horizontal.TProgressbar", background=color)
-        self.strength_bar.config(value=level)
-        self.strength_label.config(text=label, foreground=color)
+        self.strength_meter.set(level, label)
         self.strength_feedback.config(text=", ".join(feedback[:2]))
 
     def _generate_password(self):
@@ -313,8 +307,8 @@ class PasswordGeneratorDialog:
         self.password_var = tk.StringVar()
         ttk.Entry(inner, textvariable=self.password_var, font=FONT_MONO,
                   state="readonly").grid(row=9, column=0, columnspan=2, sticky="ew", ipady=4)
-        self.strength_label = ttk.Label(inner, text="", style="CardMuted.TLabel")
-        self.strength_label.grid(row=10, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        self.strength_meter = StrengthMeter(inner)
+        self.strength_meter.grid(row=10, column=0, columnspan=2, sticky="ew", pady=(6, 0))
 
         buttons = tk.Frame(inner, bg=SURFACE)
         buttons.grid(row=11, column=0, columnspan=2, sticky="ew", pady=(20, 0))
@@ -338,9 +332,7 @@ class PasswordGeneratorDialog:
             return
         self.password_var.set(password)
         level, label, _ = PasswordStrengthChecker.check_strength(password)
-        self.strength_label.config(
-            text=f"Strength: {label}",
-            foreground=PasswordStrengthChecker.get_strength_color(level))
+        self.strength_meter.set(level, label)
 
     def _copy(self):
         password = self.password_var.get()

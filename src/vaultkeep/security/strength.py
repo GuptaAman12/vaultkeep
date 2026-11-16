@@ -100,15 +100,3 @@ class PasswordStrengthChecker:
         if not feedback:
             feedback.append("Excellent password!")
         return level, label, feedback
-
-    @staticmethod
-    def get_strength_color(level):
-        """Return the display color for a strength level."""
-        colors = {
-            STRENGTH_WEAK: "#d32f2f",
-            STRENGTH_FAIR: "#f57c00",
-            STRENGTH_GOOD: "#fbc02d",
-            STRENGTH_STRONG: "#7cb342",
-            STRENGTH_VERY_STRONG: "#388e3c",
-        }
-        return colors.get(level, "#757575")
