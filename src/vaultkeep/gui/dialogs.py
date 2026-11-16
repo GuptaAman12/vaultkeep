@@ -314,7 +314,7 @@ class PasswordGeneratorDialog:
         buttons.grid(row=11, column=0, columnspan=2, sticky="ew", pady=(20, 0))
         ttk.Button(buttons, text="Close", command=self.dialog.destroy).pack(side="left")
         ttk.Button(buttons, text="Copy", command=self._copy).pack(side="right", padx=(0, 8))
-        ttk.Button(buttons, text="Generate again", style="Accent.TButton",
+        ttk.Button(buttons, text="Generate", style="Accent.TButton",
                    command=self._generate).pack(side="right")
         self._generate()
 
