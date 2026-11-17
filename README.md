@@ -21,9 +21,9 @@ A local, encrypted password vault with a desktop GUI. Entries are stored in one 
 
 ## Quick start
 
-Requirements: Python 3.8 or newer.
+On Windows, download the exe above and run it. No Python or install step is needed.
 
-Install the package, then launch it:
+To run from source, use Python 3.8 or newer and install the package:
 
 ```bash
 python -m pip install --user .
@@ -63,7 +63,7 @@ Import conflicts can be handled in three ways:
 
 ## Files
 
-Vaultkeep creates these in the directory where you launch it:
+Vaultkeep creates these beside `Vaultkeep.exe`, or in the project folder when run from source:
 
 | File | Purpose |
 | --- | --- |
