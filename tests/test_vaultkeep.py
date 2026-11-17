@@ -10,7 +10,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from vaultkeep.core.backup import BackupManager
-from vaultkeep.core.vault import META_KEY, PasswordManager
+from vaultkeep.core.crypto import CryptoManager
+from vaultkeep.core.vault import (
+    LOGIN_CORRUPT_VAULT, LOGIN_MISSING_SALT, LOGIN_OK, LOGIN_WRONG_PASSWORD,
+    META_KEY, PasswordManager,
+)
 from vaultkeep.security.generator import PasswordGenerator
 from vaultkeep.security.strength import PasswordStrengthChecker
 
@@ -24,17 +28,38 @@ class VaultTests(unittest.TestCase):
 
     def test_round_trip_and_wrong_password(self):
         vault = PasswordManager(self.data, self.salt)
-        self.assertTrue(vault.initialize("correct horse"))
+        self.assertEqual(vault.initialize("correct horse"), LOGIN_OK)
         self.assertTrue(vault.add_password("Gmail", "me@example.com", "s3cret!"))
         self.assertFalse(os.path.exists(self.data + ".tmp"))
 
         reopened = PasswordManager(self.data, self.salt)
-        self.assertTrue(reopened.initialize("correct horse"))
+        self.assertEqual(reopened.initialize("correct horse"), LOGIN_OK)
         self.assertEqual(reopened.get_password("Gmail")["username"], "me@example.com")
 
         locked = PasswordManager(self.data, self.salt)
         with self.assertLogs("PasswordManager", level="ERROR"):
-            self.assertFalse(locked.initialize("wrong password"))
+            self.assertEqual(locked.initialize("wrong password"), LOGIN_WRONG_PASSWORD)
+
+    def test_missing_salt_is_reported_and_not_recreated(self):
+        vault = PasswordManager(self.data, self.salt)
+        self.assertEqual(vault.initialize("master"), LOGIN_OK)
+        vault.add_password("Site", "user", "pw")
+        os.remove(self.salt)
+
+        broken = PasswordManager(self.data, self.salt)
+        with self.assertLogs("PasswordManager", level="ERROR"):
+            self.assertEqual(broken.initialize("master"), LOGIN_MISSING_SALT)
+        self.assertFalse(os.path.exists(self.salt))
+
+    def test_corrupt_vault_is_reported(self):
+        crypto = CryptoManager(self.salt)
+        crypto.initialize("master")
+        with open(self.data, "wb") as f:
+            f.write(crypto.encrypt(b"not json"))
+
+        vault = PasswordManager(self.data, self.salt)
+        with self.assertLogs("PasswordManager", level="ERROR"):
+            self.assertEqual(vault.initialize("master"), LOGIN_CORRUPT_VAULT)
 
     def test_search_uses_shared_logic(self):
         vault = PasswordManager(self.data, self.salt)
@@ -54,10 +79,10 @@ class VaultTests(unittest.TestCase):
         self.assertTrue(vault.change_master_password("old master", "new master"))
 
         reopened = PasswordManager(self.data, self.salt)
-        self.assertTrue(reopened.initialize("new master"))
+        self.assertEqual(reopened.initialize("new master"), LOGIN_OK)
         self.assertEqual(reopened.get_password("Gmail")["username"], "me@example.com")
         with self.assertLogs("PasswordManager", level="ERROR"):
-            self.assertFalse(reopened.initialize("old master"))
+            self.assertEqual(reopened.initialize("old master"), LOGIN_WRONG_PASSWORD)
 
     def test_password_reminder_and_snooze(self):
         vault = PasswordManager(self.data, self.salt)

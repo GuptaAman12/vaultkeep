@@ -13,6 +13,13 @@ from ..logging_config import logger
 
 META_KEY = "__meta__"
 
+LOGIN_OK = "ok"
+LOGIN_WRONG_PASSWORD = "wrong_password"
+LOGIN_MISSING_SALT = "missing_salt"
+LOGIN_CORRUPT_VAULT = "corrupt_vault"
+LOGIN_READ_ERROR = "read_error"
+LOGIN_WRITE_ERROR = "write_error"
+
 
 class PasswordManager:
     """Stores password entries in a single encrypted file."""
@@ -25,31 +32,46 @@ class PasswordManager:
         logger.info("PasswordManager initialized")
 
     def initialize(self, master_password):
-        """Unlock the vault, returning False if the password is wrong."""
+        """Unlock the vault and return a status code describing the result."""
+        data_exists = os.path.exists(self.data_file)
+        if data_exists and not os.path.exists(self.crypto.salt_file):
+            logger.error("Salt file is missing while the vault file exists")
+            return LOGIN_MISSING_SALT
+
         self.crypto.initialize(master_password)
 
-        if not os.path.exists(self.data_file):
+        if not data_exists:
             self.passwords = {}
         else:
             try:
                 with open(self.data_file, "rb") as f:
-                    decrypted = self.crypto.decrypt(f.read())
-                if decrypted is None:
-                    logger.error("Failed to decrypt password file - incorrect master password")
-                    return False
-                self.passwords = json.loads(decrypted.decode())
-            except Exception as e:
-                logger.error(f"Error loading passwords: {e}")
-                return False
+                    encrypted = f.read()
+            except OSError as e:
+                logger.error(f"Error reading vault file: {e}")
+                return LOGIN_READ_ERROR
+
+            decrypted = self.crypto.decrypt(encrypted)
+            if decrypted is None:
+                logger.error("Failed to decrypt password file - incorrect master password")
+                return LOGIN_WRONG_PASSWORD
+            try:
+                loaded = json.loads(decrypted.decode())
+            except (UnicodeDecodeError, json.JSONDecodeError) as e:
+                logger.error(f"Vault file contains invalid data: {e}")
+                return LOGIN_CORRUPT_VAULT
+            if not isinstance(loaded, dict):
+                logger.error("Vault file has an invalid structure")
+                return LOGIN_CORRUPT_VAULT
+            self.passwords = loaded
 
         meta = self.get_meta()
         if not meta.get("password_changed_at"):
             meta["password_changed_at"] = datetime.now().isoformat()
             self.passwords[META_KEY] = meta
             if not self.save():
-                return False
+                return LOGIN_WRITE_ERROR
         logger.info(f"Loaded {len(self.get_all_services())} passwords from encrypted file")
-        return True
+        return LOGIN_OK
 
     def save(self):
         """Encrypt and write the vault, replacing the old file atomically."""

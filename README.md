@@ -7,6 +7,7 @@ A local, encrypted password vault with a desktop GUI. Entries are stored in one 
 - Master password protection with PBKDF2 key derivation
 - Change the master password at any time, with a reminder every two months
 - Fernet (AES-128) encryption for the whole vault
+- Login errors that distinguish a wrong password from a missing salt or damaged vault
 - Add, view, edit, delete and search entries
 - Real-time password strength meter
 - Secure password generator with adjustable length and character types

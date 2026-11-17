@@ -11,7 +11,10 @@ from ..constants import (
     APP_NAME, AUTO_LOCK_MS, CLIPBOARD_CLEAR_MS, EXPORT_FILE_EXTENSION,
     EXPORT_FILE_TYPES, SEARCH_DEBOUNCE_MS, WINDOW_HEIGHT, WINDOW_WIDTH,
 )
-from ..core.vault import PasswordManager
+from ..core.vault import (
+    LOGIN_CORRUPT_VAULT, LOGIN_MISSING_SALT, LOGIN_OK, LOGIN_READ_ERROR,
+    LOGIN_WRONG_PASSWORD, LOGIN_WRITE_ERROR, PasswordManager,
+)
 from ..logging_config import logger
 from .dialogs import (
     AddPasswordDialog, ChangePasswordDialog, EditPasswordDialog,
@@ -23,6 +26,13 @@ from .theme import (
 
 SEARCH_PLACEHOLDER = "Search services..."
 LOGO_PATH = Path(__file__).resolve().parents[1] / "assets" / "vaultkeep.png"
+LOGIN_MESSAGES = {
+    LOGIN_WRONG_PASSWORD: "That password did not unlock the vault.",
+    LOGIN_MISSING_SALT: "salt.key is missing. Restore it from a backup.",
+    LOGIN_CORRUPT_VAULT: "The vault file is damaged. Restore passwords.enc from a backup.",
+    LOGIN_READ_ERROR: "Could not read the vault file. Check file permissions.",
+    LOGIN_WRITE_ERROR: "Could not create or update the vault file.",
+}
 
 
 class PasswordManagerGUI:
@@ -118,14 +128,17 @@ class PasswordManagerGUI:
             self.login_error.config(text="Enter your master password.")
             return
 
-        if self.manager.initialize(master_password):
+        status = self.manager.initialize(master_password)
+        if status == LOGIN_OK:
             self.authenticated = True
             self._last_activity = time.monotonic()
             self.show_main_window()
             self._maybe_remind_password_change()
         else:
-            self.login_error.config(text="That password did not unlock the vault.")
-            self.master_password_entry.delete(0, tk.END)
+            self.login_error.config(
+                text=LOGIN_MESSAGES.get(status, "Could not open the vault."))
+            if status == LOGIN_WRONG_PASSWORD:
+                self.master_password_entry.delete(0, tk.END)
             self.master_password_entry.focus()
 
     def lock(self):
