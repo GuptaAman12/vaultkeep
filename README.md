@@ -2,6 +2,8 @@
 
 A local, encrypted password vault with a desktop GUI. Entries are stored in one encrypted file on your machine. The master password is never stored.
 
+[Download Vaultkeep.exe](https://github.com/GuptaAman12/vaultkeep/releases/latest/download/Vaultkeep.exe)
+
 ## Features
 
 - Master password protection with PBKDF2 key derivation
