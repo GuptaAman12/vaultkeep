@@ -88,6 +88,7 @@ These settings live in `src/vaultkeep/constants.py`.
 main.py                       entry point
 src/vaultkeep/
   assets/vaultkeep.png        app icon
+  assets/vaultkeep.ico        exe file icon
   __init__.py                 application startup
   constants.py                configuration
   logging_config.py           logger setup
@@ -116,13 +117,13 @@ The tests use temporary files and do not open the GUI. They check vault round tr
 
 ## Windows executable
 
-`Vaultkeep.exe` is a one-file PyInstaller build in the project root. It keeps `passwords.enc`, `salt.key` and the log beside itself.
+`Vaultkeep.exe` is a one-file PyInstaller build in the project root. It keeps `passwords.enc`, `salt.key` and the log beside itself, and uses `src/vaultkeep/assets/vaultkeep.ico` for its file icon.
 
 To rebuild it from source:
 
 ```bash
 pip install pyinstaller cryptography
-python -m PyInstaller --onefile --windowed --name Vaultkeep --paths src --add-data "src\vaultkeep\assets\vaultkeep.png;vaultkeep\assets" main.py
+python -m PyInstaller --onefile --windowed --name Vaultkeep --icon "src\vaultkeep\assets\vaultkeep.ico" --paths src --add-data "src\vaultkeep\assets\vaultkeep.png;vaultkeep\assets" main.py
 ```
 
 ## License

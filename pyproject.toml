@@ -20,4 +20,4 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-vaultkeep = ["assets/*.png"]
+vaultkeep = ["assets/*.png", "assets/*.ico"]
