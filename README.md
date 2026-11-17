@@ -2,7 +2,7 @@
 
 A local, encrypted password vault with a desktop GUI. Entries are stored in one encrypted file on your machine. The master password is never stored.
 
-[Download Vaultkeep.exe](https://github.com/GuptaAman12/vaultkeep/releases/latest/download/Vaultkeep.exe)
+[![Download Vaultkeep.exe](https://img.shields.io/badge/Download-Vaultkeep.exe-2ea44f?style=for-the-badge)](https://github.com/GuptaAman12/vaultkeep/releases/latest/download/Vaultkeep.exe)
 
 ## Features
 
