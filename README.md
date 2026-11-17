@@ -19,14 +19,20 @@ A local, encrypted password vault with a desktop GUI. Entries are stored in one 
 
 ## Quick start
 
-Requirements: Python 3.8 or newer and `cryptography`.
+Requirements: Python 3.8 or newer.
+
+Install the package, then launch it:
 
 ```bash
-pip install -r requirements.txt
-python main.py
+python -m pip install --user .
+vaultkeep
 ```
 
-You can also run `python -m vaultkeep` if `src` is on your `PYTHONPATH`.
+`python -m vaultkeep` also works after installing. On Windows, add `%APPDATA%\Python\Python<version>\Scripts` to your PATH if the `vaultkeep` command is not found.
+
+Without installing, run `python main.py` from this folder, or install the single dependency with `pip install -r requirements.txt`.
+
+Start the app from the folder containing `passwords.enc` and `salt.key`. Those paths are relative to the working directory, so launching from elsewhere creates a fresh vault.
 
 On first launch, enter a new master password to create the vault. On later launches, enter the same password to unlock it. There is no reset or recovery path, so keep it memorable.
 

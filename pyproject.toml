@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vaultkeep"
+version = "2.1.0"
+description = "Offline password manager with an encrypted local vault and Tkinter GUI"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = ["cryptography>=41.0.0"]
+
+[project.scripts]
+vaultkeep = "vaultkeep:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+vaultkeep = ["assets/*.png"]
