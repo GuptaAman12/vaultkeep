@@ -16,7 +16,9 @@ from vaultkeep.core.vault import (
     META_KEY, PasswordManager,
 )
 from vaultkeep.security.generator import PasswordGenerator
-from vaultkeep.security.strength import PasswordStrengthChecker
+from vaultkeep.security.strength import (
+    STRENGTH_VERY_STRONG, STRENGTH_WEAK, PasswordStrengthChecker,
+)
 
 
 class VaultTests(unittest.TestCase):
@@ -125,10 +127,12 @@ class SecurityTests(unittest.TestCase):
             self.assertTrue(any(not c.isalnum() for c in password))
 
     def test_strength(self):
-        self.assertLess(
-            PasswordStrengthChecker.check_strength("password")[0],
-            PasswordStrengthChecker.check_strength("Xy7!qLp9#mVr2@tZ")[0],
-        )
+        check = PasswordStrengthChecker.check_strength
+        self.assertLess(check("password")[0], check("Xy7!qLp9#mVr2@tZ")[0])
+        self.assertEqual(check("Xy7!qLp9#mVr2@tZ")[0], STRENGTH_VERY_STRONG)
+        self.assertEqual(check("qwertyuiop")[0], STRENGTH_WEAK)
+        self.assertLess(check("Password123!")[0], STRENGTH_VERY_STRONG)
+        self.assertIn("commonly used", " ".join(check("Password123!")[2]))
 
 
 if __name__ == "__main__":
