@@ -1,14 +1,15 @@
 """Main application window: login screen and vault list."""
 
 import os
+import time
 import tkinter as tk
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from ..constants import (
-    APP_NAME, CLIPBOARD_CLEAR_MS, EXPORT_FILE_EXTENSION, EXPORT_FILE_TYPES,
-    SEARCH_DEBOUNCE_MS, WINDOW_HEIGHT, WINDOW_WIDTH,
+    APP_NAME, AUTO_LOCK_MS, CLIPBOARD_CLEAR_MS, EXPORT_FILE_EXTENSION,
+    EXPORT_FILE_TYPES, SEARCH_DEBOUNCE_MS, WINDOW_HEIGHT, WINDOW_WIDTH,
 )
 from ..core.vault import PasswordManager
 from ..logging_config import logger
@@ -42,6 +43,20 @@ class PasswordManagerGUI:
         self.logo_small = self.logo.subsample(12)
         self.root.iconphoto(True, self.logo)
         self.show_login()
+        self._last_activity = time.monotonic()
+        self.root.bind_all("<Any-KeyPress>", self._register_activity)
+        self.root.bind_all("<Any-ButtonPress>", self._register_activity)
+        self.root.bind_all("<Motion>", self._register_activity)
+        self.root.after(1000, self._check_idle)
+
+    def _register_activity(self, event=None):
+        self._last_activity = time.monotonic()
+
+    def _check_idle(self):
+        if (self.authenticated
+                and time.monotonic() - self._last_activity >= AUTO_LOCK_MS / 1000):
+            self.lock()
+        self.root.after(1000, self._check_idle)
 
     def show_login(self):
         """Show the master password prompt."""
@@ -105,6 +120,7 @@ class PasswordManagerGUI:
 
         if self.manager.initialize(master_password):
             self.authenticated = True
+            self._last_activity = time.monotonic()
             self.show_main_window()
             self._maybe_remind_password_change()
         else:
@@ -114,16 +130,22 @@ class PasswordManagerGUI:
 
     def lock(self):
         """Drop the decrypted entries and return to the login screen."""
+        self.authenticated = False
         if self._search_job is not None:
             self.root.after_cancel(self._search_job)
             self._search_job = None
+        if hasattr(self, "search_var"):
+            self.search_var.set(SEARCH_PLACEHOLDER)
+            self.search_entry.config(foreground=MUTED)
+            if self._search_job is not None:
+                self.root.after_cancel(self._search_job)
+                self._search_job = None
         if self._clipboard_job is not None:
             self.root.after_cancel(self._clipboard_job)
             self._clipboard_job = None
         self._clear_clipboard(self._clipboard_text)
         self.manager.passwords.clear()
         self.manager.crypto.cipher = None
-        self.authenticated = False
         self.show_login()
 
     def show_main_window(self):
@@ -267,7 +289,7 @@ class PasswordManagerGUI:
 
     def on_search(self, *args):
         """Debounce search so typing does not rebuild the list on every keystroke."""
-        if self.search_var.get() == SEARCH_PLACEHOLDER:
+        if not self.authenticated or self.search_var.get() == SEARCH_PLACEHOLDER:
             return
         if self._search_job is not None:
             self.root.after_cancel(self._search_job)
