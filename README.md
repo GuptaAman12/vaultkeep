@@ -111,3 +111,7 @@ python -m unittest discover -s tests
 ```
 
 The tests use temporary files and do not open the GUI. They check vault round trips, wrong-password handling, search, backup merging, generation and strength scoring.
+
+## License
+
+MIT. See `LICENSE` for details.
