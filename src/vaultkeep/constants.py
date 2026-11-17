@@ -1,9 +1,12 @@
 """Application constants and configuration values."""
 
-# File paths
-DATA_FILE = "passwords.enc"
-SALT_FILE = "salt.key"
-LOG_FILE = "password_manager.log"
+from pathlib import Path
+
+# File paths, resolved from the project folder rather than the working directory
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATA_FILE = str(PROJECT_ROOT / "passwords.enc")
+SALT_FILE = str(PROJECT_ROOT / "salt.key")
+LOG_FILE = str(PROJECT_ROOT / "password_manager.log")
 
 # Encryption settings
 PBKDF2_ITERATIONS = 100000

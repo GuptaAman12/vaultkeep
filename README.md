@@ -32,7 +32,7 @@ vaultkeep
 
 Without installing, run `python main.py` from this folder, or install the single dependency with `pip install -r requirements.txt`.
 
-Start the app from the folder containing `passwords.enc` and `salt.key`. Those paths are relative to the working directory, so launching from elsewhere creates a fresh vault.
+Vault files are resolved from the project folder, so a shortcut with a different working directory still opens the same vault.
 
 On first launch, enter a new master password to create the vault. On later launches, enter the same password to unlock it. There is no reset or recovery path, so keep it memorable.
 
