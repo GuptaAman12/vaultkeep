@@ -1,9 +1,13 @@
 """Application constants and configuration values."""
 
+import sys
 from pathlib import Path
 
-# File paths, resolved from the project folder rather than the working directory
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+# A frozen app keeps its vault beside the exe; source runs use the project folder.
+if getattr(sys, "frozen", False):
+    PROJECT_ROOT = Path(sys.executable).resolve().parent
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_FILE = str(PROJECT_ROOT / "passwords.enc")
 SALT_FILE = str(PROJECT_ROOT / "salt.key")
 LOG_FILE = str(PROJECT_ROOT / "password_manager.log")

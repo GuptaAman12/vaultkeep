@@ -112,6 +112,17 @@ python -m unittest discover -s tests
 
 The tests use temporary files and do not open the GUI. They check vault round trips, wrong-password handling, search, backup merging, generation and strength scoring.
 
+## Windows executable
+
+`Vaultkeep.exe` is a one-file PyInstaller build in the project root. It keeps `passwords.enc`, `salt.key` and the log beside itself.
+
+To rebuild it from source:
+
+```bash
+pip install pyinstaller cryptography
+python -m PyInstaller --onefile --windowed --name Vaultkeep --paths src --add-data "src\vaultkeep\assets\vaultkeep.png;vaultkeep\assets" main.py
+```
+
 ## License
 
 MIT. See `LICENSE` for details.
