@@ -14,14 +14,28 @@ from .theme import BG, BORDER, SURFACE, TEXT, card, FONT_BODY, FONT_MONO
 
 
 def _dialog(parent, title, width, height):
-    """Create a themed modal dialog."""
+    """Create a themed modal dialog, sized to its content and centered."""
     dialog = tk.Toplevel(parent)
     dialog.title(title)
     dialog.geometry(f"{width}x{height}")
     dialog.transient(parent)
     dialog.grab_set()
     dialog.configure(bg=BG)
+    dialog.after_idle(_fit_dialog, dialog, width, height)
     return dialog
+
+
+def _fit_dialog(dialog, width, height):
+    """Keep the whole dialog visible even with larger fonts or scaling."""
+    dialog.update_idletasks()
+    width = max(width, dialog.winfo_reqwidth())
+    height = max(height, dialog.winfo_reqheight())
+    screen_width = dialog.winfo_screenwidth()
+    screen_height = dialog.winfo_screenheight()
+    width = min(width, screen_width - 40)
+    height = min(height, screen_height - 60)
+    dialog.geometry(f"{width}x{height}+{(screen_width - width) // 2}+"
+                    f"{(screen_height - height) // 2}")
 
 
 def _panel(dialog):
@@ -168,8 +182,8 @@ class ViewPasswordDialog:
 
         ttk.Label(inner, text="Username / email", style="Field.TLabel").grid(
             row=2, column=0, sticky="w", pady=(0, 8))
-        ttk.Label(inner, text=self.data["username"], style="Value.TLabel").grid(
-            row=2, column=1, sticky="w")
+        ttk.Label(inner, text=self.data["username"], style="Value.TLabel",
+                  wraplength=180).grid(row=2, column=1, sticky="ew")
         ttk.Button(inner, text="Copy", width=8,
                    command=lambda: self.copy_callback(self.data["username"])).grid(
             row=2, column=2, padx=(10, 0))
